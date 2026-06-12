@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Training / experiment outputs
+runs/
+wandb/
+*.ckpt
+*.pt
+*.pth
+
+# Claude Code local (machine-specific) settings
+**/.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+numpy
+torch
+# --- install when you move past the dummy env ---
+# metadrive-simulator
+# --- optional: image-run eval metrics ---
+# lpips
+# scikit-image
+# --- optional but recommended: experiment tracking ---
+# wandb
