@@ -41,6 +41,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .recurrence import make_recurrence
+
 
 def _mlp(in_dim, hidden, out_dim):
     return nn.Sequential(
@@ -59,9 +61,9 @@ class RSSM(nn.Module):
         self.min_std = cfg.min_std
         h = cfg.hidden_dim
 
-        # Deterministic path: project [z; a] to a hidden vector, then advance the GRU memory.
-        self.input_proj = nn.Sequential(nn.Linear(self.stoch_dim + action_dim, h), nn.SiLU())
-        self.gru = nn.GRUCell(h, self.deter_dim)
+        # Deterministic path: a SWAPPABLE recurrence (GRU / SSM / ...), selected by cfg.dynamics.
+        # This is the ablation seam -- the prior/posterior heads below don't change when it does.
+        self.recurrence = make_recurrence(cfg, action_dim)
 
         # Stochastic heads emit (mean, std_raw); std = softplus(std_raw) + min_std keeps it
         # strictly positive and floored (avoids a collapsing / exploding variance).
@@ -81,9 +83,8 @@ class RSSM(nn.Module):
         return stats["mean"] + stats["std"] * eps
 
     def _recur(self, h, z, action):
-        # h_t = GRU( proj([z_{t-1}, a]), h_{t-1} )
-        x = self.input_proj(torch.cat([z, action], dim=-1))
-        return self.gru(x, h)
+        # h_t = recurrence( h_{t-1}, z_{t-1}, a )  -- GRU by default, swappable via cfg.dynamics.
+        return self.recurrence(h, z, action)
 
     # --- single-step primitives (shared by both loops) -----------------------------------
     def obs_step(self, state, prev_action, embed):
@@ -111,7 +112,7 @@ class RSSM(nn.Module):
 
     # --- primitives shared / state ------------------------------------------------------
     def initial_state(self, batch_size, device):
-        h = torch.zeros(batch_size, self.deter_dim, device=device)
+        h = self.recurrence.initial_state(batch_size, device)
         z = torch.zeros(batch_size, self.stoch_dim, device=device)
         return (h, z)
 

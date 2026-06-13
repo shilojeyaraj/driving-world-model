@@ -106,17 +106,20 @@ def test_overfits_one_batch_without_posterior_collapse():
 
 
 @pytest.mark.slow
-def test_reward_prediction_generalizes():
+@pytest.mark.parametrize("dynamics", ["rssm", "mamba"])
+def test_reward_prediction_generalizes(dynamics):
     """The real action-timing test (spec §11's #1 risk). Train on one data stream, then
     measure reward error on a DISJOINT held-out stream where memorization can't help.
 
     Reward = throttle - |steer| is a function of the action. The reward head reads `feat`;
-    `feat_t` carries the action via the recurrence h_t = GRU([z_{t-1}, a_{t-1}], h_{t-1}).
+    `feat_t` carries the action via the recurrence h_t = f([z_{t-1}, a_{t-1}], h_{t-1}).
     So the head can only generalize if the reward target is aligned to the action that
     actually lives in the feature. Misalign it and held-out reward MSE stays at the reward
-    variance (~0.42) -- the head can do no better than predicting the mean reward."""
+    variance (~0.42) -- the head can do no better than predicting the mean reward.
+
+    Parametrized over the ablation axis: both the GRU and the Mamba SSM must learn dynamics."""
     torch.manual_seed(0)
-    cfg = _small_cfg(seq_len=10)
+    cfg = _small_cfg(seq_len=10, dynamics=dynamics)
     wm = WorldModel(cfg, cfg.action_dim)
     opt = torch.optim.Adam(wm.parameters(), lr=3e-3)
 
