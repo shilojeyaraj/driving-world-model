@@ -9,23 +9,60 @@ Question: Why can you train the policy on imagined rollouts with no env interact
           and what's the failure mode if the world model is wrong?
 
 This payoff is what separates model-based from model-free RL.
+
+----------------------------------------------------------------------------------------
+WHY a Tanh-Normal, reparameterized actor:
+  Actions must live in [-1,1] (the env's range), so we squash a Gaussian through tanh. We
+  sample with the reparameterization trick -- action = tanh(mean + std*eps) -- so gradients
+  flow from the imagined RETURN, back through the world model's dynamics + reward head, and
+  into the actor. That value-gradient is only possible because the whole simulator is
+  differentiable. The entropy estimate (base-Normal entropy; the tanh Jacobian correction is
+  omitted -- a v1 simplification) is a mild bonus that keeps the policy from collapsing too
+  early.
+
+WHY a critic:
+  Imagined rollouts are short (cfg.imagine_horizon). The critic bootstraps the value beyond
+  the horizon so returns reflect long-term reward, not just the next few steps.
 """
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+
+def _mlp(in_dim, hidden, out_dim):
+    return nn.Sequential(
+        nn.Linear(in_dim, hidden),
+        nn.SiLU(),
+        nn.Linear(hidden, hidden),
+        nn.SiLU(),
+        nn.Linear(hidden, out_dim),
+    )
 
 
 class Actor(nn.Module):
     def __init__(self, cfg, feat_dim, action_dim):
         super().__init__()
-        raise NotImplementedError
+        self.cfg = cfg
+        self.min_std = cfg.min_std
+        self.net = _mlp(feat_dim, cfg.hidden_dim, 2 * action_dim)  # -> (mean, std_raw)
 
-    def forward(self, feat):
-        raise NotImplementedError
+    def forward(self, feat, deterministic=False):
+        mean, std_raw = self.net(feat).chunk(2, dim=-1)
+        std = F.softplus(std_raw) + self.min_std
+        if deterministic:
+            action = torch.tanh(mean)                       # eval / closed-loop: the mode
+        else:
+            action = torch.tanh(mean + std * torch.randn_like(std))   # reparameterized sample
+        # Entropy of the pre-tanh Normal, summed over action dims (v1 simplification).
+        entropy = (0.5 + 0.5 * torch.log(2 * torch.pi * std ** 2)).sum(-1)
+        return action, entropy
 
 
 class Critic(nn.Module):
     def __init__(self, cfg, feat_dim):
         super().__init__()
-        raise NotImplementedError
+        self.cfg = cfg
+        self.net = _mlp(feat_dim, cfg.hidden_dim, 1)
 
     def forward(self, feat):
-        raise NotImplementedError
+        return self.net(feat).squeeze(-1)

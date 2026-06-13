@@ -8,6 +8,13 @@ implement -- that's where the understanding lives.
 > Read `CONCEPTS.md` next: it maps each file to the ML concept it teaches and the one
 > question you should be able to answer after implementing it.
 
+> **Status — v1 complete (state mode).** All ML stubs are now implemented and verified end-to-end
+> on `DummyDrivingEnv`: world model trains (ELBO), open-loop beats the no-action baseline, and a
+> policy trained purely in imagination drives the real env (return ≈ 95 vs ≈ −51 random). See
+> **`ARCHITECTURE.md`** for the full walkthrough (ELBO derived by hand, action timing, λ-returns,
+> posterior-collapse detection) and `experiments/001–005` for the build log. Image/GPU mode and
+> the Transformer/Mamba dynamics ablation are designed-for but out of v1 scope.
+
 ## Architecture (three swappable slots)
 
 ```

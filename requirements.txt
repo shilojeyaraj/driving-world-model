@@ -1,5 +1,7 @@
 numpy
 torch
+# --- dev: tests ---
+pytest
 # --- install when you move past the dummy env ---
 # metadrive-simulator
 # --- optional: image-run eval metrics ---

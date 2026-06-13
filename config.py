@@ -20,6 +20,8 @@ class Config:
     # --- world model ---
     deter_dim: int = 256         # h_t, the deterministic recurrent state
     stoch_dim: int = 32          # z_t, the stochastic latent
+    hidden_dim: int = 256        # width of the MLP heads (encoder/decoder/prior/posterior)
+    min_std: float = 0.1         # std floor for Gaussian prior/posterior (softplus + min_std)
     dynamics: str = "rssm"       # "rssm" | "transformer" | "mamba"  <- the axis to ablate
     encoder: str = "cnn"         # "cnn" | "vit"  (only matters for obs_type == "image")
 
@@ -30,6 +32,13 @@ class Config:
     kl_scale: float = 1.0
     free_bits: float = 1.0       # see CONCEPTS.md: guards against posterior collapse
     imagine_horizon: int = 15
+
+    # --- behavior (actor-critic in imagination) ---
+    gamma: float = 0.99          # discount factor for returns
+    lambda_: float = 0.95        # lambda for lambda-returns (bias/variance trade-off)
+    entropy_coef: float = 1e-3   # actor entropy bonus (exploration / anti-collapse)
+    actor_lr: float = 8e-5
+    critic_lr: float = 8e-5
 
     # --- infra ---
     device: str = "cpu"          # "cpu" for state runs; "cuda" for image runs on Kaggle
