@@ -23,6 +23,10 @@ class DrivingEnv(ABC):
         """Returns (obs, reward, done, info)."""
         ...
 
+    def close(self):
+        """Release env resources. No-op by default; real sims (MetaDrive) override it."""
+        pass
+
 
 def make_env(cfg):
     if cfg.env == "dummy":
