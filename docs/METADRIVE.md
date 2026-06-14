@@ -102,6 +102,13 @@ whatever reward the env emits; the reward head + closed-loop metrics carry over 
 
 ## Running the pipeline on MetaDrive
 
+**All-in-one (state mode):**
+```bash
+python -m scripts.run_metadrive       # collect -> train WM -> train policy -> closed-loop in the sim
+                                       # (state_dim=259 preset; saves runs/metadrive/ckpt.pt)
+```
+
+**Or step by step:**
 ```bash
 # 1) probe + set cfg.state_dim accordingly, then:
 python -m training.collect            # collect trajectories (edit get_config(env="metadrive", ...))
