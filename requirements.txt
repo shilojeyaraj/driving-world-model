@@ -2,7 +2,7 @@ numpy
 torch
 # --- dev: tests ---
 pytest
-# --- install when you move past the dummy env ---
+# --- real driving sim (optional): see docs/METADRIVE.md for install + version gotchas ---
 # metadrive-simulator
 # --- image mode: dream-video rendering + eval metrics ---
 imageio

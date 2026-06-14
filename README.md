@@ -17,9 +17,14 @@ implement -- that's where the understanding lives.
 >   decoder, and a **dream-video renderer** (`scripts/dream_video.py`) that rolls the prior and
 >   decodes latents into predicted frames; `experiments/007`.
 >
+> - **MetaDrive (real sim)** — `envs/metadrive_env.py` hardened behind the same contract, with a
+>   unit-tested obs adapter, a `scripts/probe_metadrive.py` helper, and **`docs/METADRIVE.md`**
+>   (install, version gotchas, config). Live verification pending an install (heavy on Windows;
+>   use Linux/Colab/Kaggle, especially for image mode).
+>
 > See **`ARCHITECTURE.md`** for the full walkthrough (ELBO by hand, action timing, λ-returns,
-> posterior collapse) and `experiments/001–007` for the build log. Still designed-for: image
-> mode on a GPU at full resolution, MetaDrive/CARLA, and a windowed-state Transformer recurrence.
+> posterior collapse) and `experiments/001–008` for the build log. Still designed-for: full-res
+> image mode on a GPU, CARLA, and a windowed-state Transformer recurrence.
 
 ## Architecture (three swappable slots)
 
