@@ -18,9 +18,9 @@ implement -- that's where the understanding lives.
 >   decodes latents into predicted frames; `experiments/007`.
 >
 > - **MetaDrive (real sim)** — `envs/metadrive_env.py` hardened behind the same contract, with a
->   unit-tested obs adapter, a `scripts/probe_metadrive.py` helper, and **`docs/METADRIVE.md`**
->   (install, version gotchas, config). Live verification pending an install (heavy on Windows;
->   use Linux/Colab/Kaggle, especially for image mode).
+>   unit-tested obs adapter, a `scripts/probe_metadrive.py` helper, and **`docs/METADRIVE.md`**.
+>   **Live-verified in state mode** (MetaDrive 0.4.3, headless CPU): the world model trains on
+>   real lidar+ego obs (`state_dim=259`). Image mode needs a GPU (Colab/Kaggle).
 >
 > See **`ARCHITECTURE.md`** for the full walkthrough (ELBO by hand, action timing, λ-returns,
 > posterior collapse) and `experiments/001–008` for the build log. Still designed-for: full-res

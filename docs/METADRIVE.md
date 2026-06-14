@@ -20,8 +20,11 @@ renderer don't change.
   flat state, multi-modal dicts, HWC↔CHW, 0–255↔0–1, and frame-stacking. A `pytest.importorskip`
   **live smoke test** runs reset/step only where MetaDrive is actually installed.
 - ✅ **Probe script** (`scripts/probe_metadrive.py`) to read the real obs dims for your install.
-- ⏳ **Live verification pending an install.** A `pip install metadrive-simulator` on this
-  Windows/CPU machine **failed** (see below). Verify on a Linux/Colab/Kaggle box.
+- ✅ **Live-verified in STATE mode** (this Windows/CPU box, MetaDrive **0.4.3** via the GitHub
+  source install — see below). `reset`/`step` work headless; the live smoke test passes. The
+  real observation is **`state_dim = 259`** (`Box(259,)`), action `Box(2,) ∈ [-1,1]`. The full
+  pipeline (collect → ELBO → backprop) runs on real MetaDrive data.
+- ⏳ **Image mode not yet verified** — needs a GPU/offscreen renderer (use Colab/Kaggle).
 
 ---
 
@@ -44,8 +47,10 @@ error in gym setup command: 'extras_require' must be a dictionary whose values a
 or lists of strings ... Failed to build 'gym' when getting requirements to build wheel
 ```
 
-This is the well-known "old `gym` won't build with modern setuptools" problem. Fixes, in order
-of preference:
+This is the well-known "old `gym` won't build with modern setuptools" problem. **On this
+machine, fix #3 (GitHub source install) succeeded** — it installed MetaDrive 0.4.3 with
+`gymnasium` instead of the legacy `gym`, and state mode then ran headless on CPU. Fixes, in
+order of preference:
 
 1. **Use Linux / Google Colab / Kaggle** (where MetaDrive + GPU rendering are actually tested).
    This is the recommended path for image mode anyway.
