@@ -51,7 +51,8 @@ def imagine_rollout(world_model, actor, start_state, horizon):
         feats.append(feat)
     feats = torch.stack(feats, dim=1)                       # (N, H+1, F)
     N, _, Fdim = feats.shape
-    dec = decoder(feats[:, 1:].reshape(N * horizon, Fdim))  # decode the post-action states
+    # Only reward/continue are needed in imagination; skip the (image) obs head entirely.
+    dec = decoder(feats[:, 1:].reshape(N * horizon, Fdim), decode_obs=False)
     rewards = dec["reward"].reshape(N, horizon)
     conts = torch.sigmoid(dec["cont_logit"]).reshape(N, horizon)
     return feats, rewards, conts, torch.stack(entropies, dim=1)

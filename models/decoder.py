@@ -76,10 +76,14 @@ class Decoder(nn.Module):
         self.reward_head = _mlp(feat_dim, h, 1)   # Gaussian mean (unit var -> MSE)
         self.cont_head = _mlp(feat_dim, h, 1)     # Bernoulli logit (BCE-with-logits)
 
-    def forward(self, feat):
+    def forward(self, feat, decode_obs=True):
         # feat: (N, feat_dim) -> dict of per-item predictions.
-        return {
-            "obs": self.obs_head(feat),
+        # decode_obs=False skips the obs head -- imagination only needs reward/continue, and in
+        # image mode the obs head is a transposed-CNN we'd otherwise compute and throw away.
+        out = {
             "reward": self.reward_head(feat).squeeze(-1),       # (N, 1) -> (N,)
             "cont_logit": self.cont_head(feat).squeeze(-1),     # (N, 1) -> (N,)
         }
+        if decode_obs:
+            out["obs"] = self.obs_head(feat)
+        return out
