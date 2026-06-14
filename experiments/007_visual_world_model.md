@@ -39,8 +39,16 @@ sharper decoder (e.g. the DiT/diffusion head noted in decoder.py) and a richer s
 - Recon initially summed only the last dim (fine for state vectors, wrong for (3,H,W)); fixed
   to sum over all obs dims. Caught immediately by the image contract test.
 
+## Update (step ②: polish)
+Richer scene (a static road band + the car blob), bigger frames (32x32), longer horizon (20),
+more training (800 steps), and the dream DRIVEN with constant throttle so the car clearly
+accelerates along the road. Result: recon -> 0.10 and **per-pixel dream MSE 0.0002** (vs 0.011
+at 16x16/150 steps) -- the dream is now crisp and the predicted motion tracks reality frame for
+frame. `scripts/dream_video.py` (drive_action default = full throttle).
+
 ## One-line takeaway (the interview sentence)
 > Because the world model is obs-type-agnostic between the encoder and decoder, going from a
 > state vector to pixels meant swapping only those two nets + the env; the model then learns to
-> reconstruct frames (recon 28->0.17) and to DREAM -- rolling the prior forward and decoding
-> latents into a video that tracks reality (pixel MSE 0.011).
+> reconstruct frames (recon 28->0.17) and to DREAM -- rolling the prior forward under a chosen
+> action and decoding latents into a crisp video of the car driving (pixel MSE 0.0002) that
+> tracks reality frame for frame.
