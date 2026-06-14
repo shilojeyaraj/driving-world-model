@@ -28,6 +28,28 @@ WHY three heads (not just obs):
 import torch.nn as nn
 
 
+class _ImageObsHead(nn.Module):
+    """Transposed-CNN mirror of the encoder: feat -> (3,H,W). A linear lifts feat to a small
+    256-channel spatial grid, then 4 stride-2 transposed convs double the size each step back
+    up to image_size. No final activation (Gaussian mean -> MSE), matching the state head."""
+
+    def __init__(self, cfg, feat_dim):
+        super().__init__()
+        self.s0 = cfg.image_size // 16
+        assert self.s0 >= 1, "image_size must be a multiple of 16 (>=16)"
+        self.fc = nn.Linear(feat_dim, 256 * self.s0 * self.s0)
+        chs, in_c, layers = [128, 64, 32], 256, []
+        for c in chs:
+            layers += [nn.ConvTranspose2d(in_c, c, kernel_size=4, stride=2, padding=1), nn.SiLU()]
+            in_c = c
+        layers += [nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1)]
+        self.deconv = nn.Sequential(*layers)
+
+    def forward(self, feat):
+        x = self.fc(feat).reshape(-1, 256, self.s0, self.s0)
+        return self.deconv(x)
+
+
 def _mlp(in_dim, hidden, out_dim):
     return nn.Sequential(
         nn.Linear(in_dim, hidden),
@@ -47,11 +69,7 @@ class Decoder(nn.Module):
         if cfg.obs_type == "state":
             self.obs_head = _mlp(feat_dim, h, cfg.state_dim)   # Gaussian mean (unit var -> MSE)
         elif cfg.obs_type == "image":
-            # Deferred to the GPU/image phase (spec §13): a transposed-CNN mirror of the
-            # encoder. Written + validated there, with its own test.
-            raise NotImplementedError(
-                "image-mode Decoder is a later (GPU) phase; v1 Phase 1 is state-only"
-            )
+            self.obs_head = _ImageObsHead(cfg, feat_dim)       # transposed-CNN -> (3,H,W)
         else:
             raise ValueError(f"unknown obs_type: {cfg.obs_type}")
 

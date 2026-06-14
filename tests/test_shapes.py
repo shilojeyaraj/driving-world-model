@@ -40,3 +40,23 @@ def test_decoder_state_output_shapes():
     assert out["obs"].shape == (N, cfg.state_dim)
     assert out["reward"].shape == (N,)
     assert out["cont_logit"].shape == (N,)
+
+
+def test_encoder_image_output_shape():
+    """image-mode CNN encoder maps (N,3,H,W) -> (N, embed_dim)."""
+    cfg = get_config(obs_type="image", image_size=16, encoder="cnn", hidden_dim=32)
+    enc = Encoder(cfg)
+    assert isinstance(enc.embed_dim, int) and enc.embed_dim > 0
+    e = enc(torch.rand(4, 3, 16, 16))
+    assert e.shape == (4, enc.embed_dim)
+
+
+def test_decoder_image_output_shapes():
+    """image-mode decoder maps feat -> obs (N,3,H,W) image + reward/continue scalars."""
+    cfg = get_config(obs_type="image", image_size=16, hidden_dim=32)
+    feat_dim = cfg.deter_dim + cfg.stoch_dim
+    dec = Decoder(cfg, feat_dim)
+    out = dec(torch.randn(4, feat_dim))
+    assert out["obs"].shape == (4, 3, 16, 16)
+    assert out["reward"].shape == (4,)
+    assert out["cont_logit"].shape == (4,)

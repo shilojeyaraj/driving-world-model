@@ -4,7 +4,8 @@ torch
 pytest
 # --- install when you move past the dummy env ---
 # metadrive-simulator
-# --- optional: image-run eval metrics ---
+# --- image mode: dream-video rendering + eval metrics ---
+imageio
 # lpips
 # scikit-image
 # --- optional but recommended: experiment tracking ---

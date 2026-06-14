@@ -59,15 +59,16 @@ class WorldModel(nn.Module):
 
         # 3) Decode the features into observation / reward / continue predictions.
         dec = self.decoder(feat.reshape(B * T, feat.shape[-1]))
-        obs_hat = dec["obs"].reshape(B, T, -1)
+        obs_hat = dec["obs"].reshape(B, T, *obs.shape[2:])     # match obs shape (state vec OR image)
         reward_hat = dec["reward"].reshape(B, T)
         cont_logit = dec["cont_logit"].reshape(B, T)
 
         # 4) Negative-log-likelihood terms (Gaussian unit-var -> MSE; Bernoulli -> BCE).
         #
         # OBS aligns straight: feat_t is the posterior state at t (it consumed e_t = enc(obs_t)),
-        # so feat_t predicts obs_t. No shift.
-        recon = ((obs_hat - obs) ** 2).sum(-1).mean()          # sum over obs dims, mean over B,T
+        # so feat_t predicts obs_t. No shift. Sum over ALL obs dims (state_dim, or C*H*W for
+        # images), mean over B,T.
+        recon = ((obs_hat - obs) ** 2).reshape(B, T, -1).sum(-1).mean()
         #
         # REWARD / CONTINUE are TRANSITION quantities. In this env reward[t] = R(s_t, a_t),
         # a function of a_t -- but feat_t carries a_{t-1} (the recurrence consumes the previous
