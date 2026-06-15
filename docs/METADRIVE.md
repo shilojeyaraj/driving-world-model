@@ -108,6 +108,15 @@ python -m scripts.run_metadrive       # collect -> train WM -> train policy -> c
                                        # (state_dim=259 preset; saves runs/metadrive/ckpt.pt)
 ```
 
+**Watch the simulation (record a video):**
+```bash
+python -m scripts.record_metadrive          # IDM expert drives; saves runs/metadrive_drive.gif
+python -m scripts.record_metadrive forward  # a simple throttle-forward policy instead
+```
+Renders MetaDrive top-down offscreen (no GUI window needed; verified working here via the
+`wglGraphicsPipe` OpenGL backend) and saves a playable GIF. For a live 3-D window instead, run a
+script locally with `MetaDriveEnv(dict(use_render=True))` (opens an interactive viewer).
+
 **Or step by step:**
 ```bash
 # 1) probe + set cfg.state_dim accordingly, then:
