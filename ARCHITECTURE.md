@@ -167,6 +167,27 @@ V^λ_t = r_t + γ·c_t·[ (1−λ)·v_{t+1} + λ·V^λ_{t+1} ] ,      V^λ_H = v
 detached** so the actor gradient flows only through `rewards → dynamics → actions`. See
 `training/train_behavior.py:behavior_losses`.
 
+### 4a. The iterated Dreamer loop — making it actually drive
+
+`train_behavior.train_behavior` is **single-shot**: collect once (random) → train WM → train
+policy. That's enough for the toy (state-independent optimum, dense reward), but it **fails on a
+real sim**: a policy trained inside a model built only from random, crash-prone data **exploits
+the model's errors** — confident in imagination, off-road in reality (MetaDrive: imagined return
+4.4 but closed-loop −2.9, *worse than random*; `experiments/010`).
+
+`training/dreamer_loop.py:dreamer_train` is the real algorithm — seed random, then repeat:
+
+```
+collect WITH the current policy (+ exploration noise)  → append to the buffer
+train the world model on the growing buffer
+train the policy in imagination on the frozen world model
+```
+
+Collecting *with the policy* grounds the world model in the states the policy actually visits,
+closing the imagination-vs-reality gap. WM `requires_grad_` is toggled between the WM-train and
+behavior phases (frozen during behavior so gradients flow to the actor but don't update the WM).
+Verified to drive the toy end-to-end (return 87.6 vs −48 random; `tests/test_dreamer_loop.py`).
+
 ---
 
 ## 5. Two rollout modes: sample vs mean (the eval bug we fixed)
