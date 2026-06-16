@@ -59,6 +59,16 @@ python -m training.train_behavior            # collect -> train WM -> train poli
 python -m scripts.eval_closed_loop runs/behavior/ckpt.pt   # closed-loop driving vs random
 ```
 
+> **Heads-up on runtime.** The script defaults (10,000 grad steps, `seq_len=50`) take **~1.5–2h
+> on CPU** — and that's overkill: the toy converges in ~1–2k steps. For a **~5–8 min** run, shrink
+> `seq_len` + `steps`:
+> ```bash
+> python -c "from config import get_config; from training.train_world_model import train; \
+> train(get_config(env='dummy', obs_type='state', seq_len=20, max_episode_steps=200), steps=1500)"
+> ```
+> Metrics print every 100 steps — you'll see `recon`/`reward` drop and `kl` stay healthy (>0)
+> within the first few hundred. (`train_behavior` is similar; pass smaller `wm_steps`/`behavior_steps`.)
+
 ## 5. Dynamics ablation (GRU vs Mamba-style SSM)
 ```bash
 python -m scripts.ablate_dynamics            # trains both, prints a comparison table
