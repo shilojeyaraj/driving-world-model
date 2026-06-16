@@ -65,6 +65,10 @@ python -m training.train_world_model
 The smoke test and collect script run against a built-in `DummyDrivingEnv`, so you can
 confirm the plumbing on your laptop before installing MetaDrive or implementing anything.
 
+> **Run/test everything:** see **`docs/RUNNING.md`** (every command + which env vars you need —
+> spoiler: none). For the ML story (interviews) see `docs/SYSTEM_OVERVIEW.md`; for the math,
+> `ARCHITECTURE.md`.
+
 ## How the stubs are tagged
 
 Every file's header says one of:
