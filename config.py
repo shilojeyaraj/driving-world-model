@@ -40,6 +40,13 @@ class Config:
     actor_lr: float = 8e-5
     critic_lr: float = 8e-5
 
+    # --- gesture control / driving feedback (see docs/superpowers/specs/2026-06-15-...) ---
+    webcam_id: int = 0
+    gesture_smoothing: float = 0.7    # EMA weight on the previous action (anti-jitter)
+    gesture_deadzone: float = 0.1     # zero out |signal| below this
+    forecast_horizon: int = 15        # steps the safety metric imagines your action forward
+    risk_threshold: float = 0.5       # predicted survival below this -> safety alert
+
     # --- infra ---
     device: str = "cpu"          # "cpu" for state runs; "cuda" for image runs on Kaggle
     seed: int = 0
