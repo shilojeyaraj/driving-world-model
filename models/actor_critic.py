@@ -57,6 +57,21 @@ class Actor(nn.Module):
         entropy = (0.5 + 0.5 * torch.log(2 * torch.pi * std ** 2)).sum(-1)
         return action, entropy
 
+    def log_prob(self, feat, action):
+        """Log-density of `action` under this Tanh-Normal policy, summed over action dims. Used as
+        the 'surprise' style signal (negative log-prob = how unusual the action is vs the policy).
+
+        Change of variables for the tanh squash: log p(a) = log N(atanh(a); mean, std)
+        - sum log(1 - a^2). `a` is clamped off ±1 so atanh is finite."""
+        mean, std_raw = self.net(feat).chunk(2, dim=-1)
+        std = F.softplus(std_raw) + self.min_std
+        a = torch.clamp(torch.as_tensor(action, dtype=mean.dtype, device=mean.device), -0.999, 0.999)
+        if a.dim() == 1:
+            a = a.expand_as(mean)
+        pre = 0.5 * (torch.log1p(a) - torch.log1p(-a))            # atanh(a)
+        normal = torch.distributions.Normal(mean, std)
+        return (normal.log_prob(pre) - torch.log(1.0 - a ** 2 + 1e-6)).sum(-1)
+
 
 class Critic(nn.Module):
     def __init__(self, cfg, feat_dim):

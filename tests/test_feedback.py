@@ -39,8 +39,8 @@ def test_style_deviation_shapes():
     _, actor, _ = _models(cfg)
     feat = torch.randn(1, cfg.deter_dim + cfg.stoch_dim)
     out = style_deviation(actor, feat, np.array([0.5, -0.3], np.float32))
-    assert {"d_steer", "d_throttle"} <= set(out)
-    assert isinstance(out["d_steer"], float)
+    assert {"d_steer", "d_throttle", "surprise"} <= set(out)
+    assert isinstance(out["d_steer"], float) and isinstance(out["surprise"], float)
 
 
 def test_state_value_is_float():

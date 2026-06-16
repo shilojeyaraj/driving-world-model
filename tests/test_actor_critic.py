@@ -41,6 +41,21 @@ def test_critic_output_shape():
     assert v.shape == (7,)
 
 
+def test_actor_log_prob_peaks_at_the_mode():
+    """Tanh-Normal log-prob (with the change-of-variables correction): the mode (tanh(mean)) is
+    more likely than an extreme action. Used for the 'surprise' style signal in eval/feedback.py."""
+    torch.manual_seed(0)
+    cfg = _cfg()
+    actor = Actor(cfg, 48, 2)
+    feat = torch.randn(5, 48)
+    mode, _ = actor(feat, deterministic=True)
+
+    lp_mode = actor.log_prob(feat, mode)
+    lp_extreme = actor.log_prob(feat, torch.full_like(mode, 0.99))
+    assert lp_mode.shape == (5,)
+    assert torch.all(lp_mode > lp_extreme)        # the mode is the most likely action
+
+
 def test_lambda_returns_matches_hand_worked_example():
     """V^lambda_t = r_t + gamma*c_t*[(1-lam)*v_{t+1} + lam*V^lambda_{t+1}],  V^lambda_H = v_H.
 

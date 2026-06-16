@@ -41,13 +41,16 @@ def forecast_safety(world_model, state, action, horizon):
 
 
 def style_deviation(reference_actor, feat, action):
-    """B: how your action differs from the reference policy's at this state (per action dim)."""
+    """B: how your action differs from the reference policy's at this state. Reports the per-dim
+    deviation AND `surprise` = negative log-prob of your action under the reference's distribution
+    (a principled 'how unusual is this' that accounts for the policy's uncertainty)."""
     a = np.asarray(action, np.float32)
     with torch.no_grad():
         ref, _ = reference_actor(feat, deterministic=True)                           # (1, A)
+        surprise = -float(reference_actor.log_prob(feat, torch.as_tensor(a, device=feat.device).reshape(1, -1)))
     ref = ref.squeeze(0).cpu().numpy()
     return {"d_steer": float(a[0] - ref[0]), "d_throttle": float(a[1] - ref[1]),
-            "ref_steer": float(ref[0]), "ref_throttle": float(ref[1])}
+            "ref_steer": float(ref[0]), "ref_throttle": float(ref[1]), "surprise": surprise}
 
 
 def state_value(critic, feat):
@@ -73,7 +76,8 @@ class DrivingFeedback:
     def reset(self):
         self.state = self.wm.rssm.initial_state(1, self.device)
         self.prev_action = torch.zeros(1, self.cfg.action_dim, device=self.device)
-        self.traces = {k: [] for k in ("survival", "pred_return", "risk", "d_steer", "d_throttle", "value")}
+        self.traces = {k: [] for k in
+                       ("survival", "pred_return", "risk", "d_steer", "d_throttle", "surprise", "value")}
 
     def step(self, obs, action):
         with torch.no_grad():
@@ -122,6 +126,7 @@ def report_from_traces(traces, cfg):
         "mean_survival": _mean(traces["survival"]),
         "mean_value": _mean(traces["value"]),
         "mean_abs_steer_dev": _mean([abs(x) for x in traces["d_steer"]]),
+        "mean_surprise": _mean(traces.get("surprise", [])),
         "event_counts": counts,
         "events": events,
     }
