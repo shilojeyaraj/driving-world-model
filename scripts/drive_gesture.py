@@ -52,10 +52,17 @@ def _draw_hud(frame, fb):
 
 
 def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_gesture.gif",
-                  session="runs/gesture_session.npz"):
+                  session="runs/gesture_session.npz", show=None):
     import imageio.v2 as imageio
     from metadrive.envs import MetaDriveEnv
     from envs.metadrive_env import adapt_obs
+
+    # Live window by default for the interactive gesture demo; off for headless policies.
+    show = (policy == "gesture") if show is None else show
+    cv2 = None
+    if show:
+        import cv2
+        cv2.namedWindow("drive (press q to quit)", cv2.WINDOW_NORMAL)
 
     feedback = None
     if ckpt:
@@ -81,11 +88,19 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
             for k, v in zip(rec, (obs, action, float(r), done)):
                 rec[k].append(v)
             frame = _resize(np.asarray(env.render(mode="topdown", window=False)))
-            frames.append(_draw_hud(frame, fb) if fb else frame)
+            if fb:
+                frame = _draw_hud(frame, fb)
+            frames.append(frame)
+            if show:
+                cv2.imshow("drive (press q to quit)", frame[:, :, ::-1])   # RGB -> BGR for cv2
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
             obs = adapt_obs(env.reset()[0], "state") if done else adapt_obs(raw, "state")
     finally:
         close_src()
         env.close()
+        if show:
+            cv2.destroyAllWindows()
 
     os.makedirs(os.path.dirname(out_gif) or ".", exist_ok=True)
     imageio.mimsave(out_gif, frames, duration=0.06, loop=0)
