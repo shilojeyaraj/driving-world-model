@@ -54,19 +54,13 @@ def _draw_hud(frame, fb):
 def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_gesture.gif",
                   session="runs/gesture_session.npz", show=None):
     import imageio.v2 as imageio
-    from metadrive.envs import MetaDriveEnv
-    from envs.metadrive_env import adapt_obs
+    from envs.metadrive_env import adapt_obs          # pure (no panda3d at import time)
 
-    # Live window by default for the interactive gesture demo; off for headless policies.
     show = (policy == "gesture") if show is None else show
-    cv2 = None
-    if show:
-        import cv2
-        cv2.namedWindow("drive (press q to quit)", cv2.WINDOW_NORMAL)
 
     feedback = None
     if ckpt:
-        from utils import load_models
+        from utils import load_models                  # torch only -- no native-DLL clash
         from eval.feedback import DrivingFeedback
         cfg, wm, ref_actor, critic = load_models(ckpt)
         feedback = DrivingFeedback(wm, ref_actor, critic, cfg)
@@ -75,8 +69,19 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         cfg = get_config(env="metadrive", obs_type="state", state_dim=259, action_dim=2,
                          max_episode_steps=300)
 
-    env = MetaDriveEnv(dict(use_render=False, horizon=cfg.max_episode_steps))
+    # WINDOWS LOAD-ORDER FIX (important): build the action source -- which imports MediaPipe and
+    # therefore TensorFlow's native DLLs -- and open the cv2 window BEFORE loading MetaDrive /
+    # panda3d. The reverse order makes TF's DLL init fail ("DLL load failed while importing
+    # _pywrap_tensorflow_internal"). Verified: metadrive-then-mediapipe fails, mediapipe-then-
+    # metadrive is fine.
     get_action, close_src = _action_source(policy, cfg)
+    cv2 = None
+    if show:
+        import cv2
+        cv2.namedWindow("drive (press q to quit)", cv2.WINDOW_NORMAL)
+
+    from metadrive.envs import MetaDriveEnv             # panda3d loads here, AFTER TensorFlow
+    env = MetaDriveEnv(dict(use_render=False, horizon=cfg.max_episode_steps))
     obs = adapt_obs(env.reset()[0], "state")
     frames, rec = [], {"obs": [], "action": [], "reward": [], "done": []}
     try:

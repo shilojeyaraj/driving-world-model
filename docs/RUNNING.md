@@ -120,3 +120,8 @@ Everything writes under `runs/` (checkpoints `*.pt`, GIFs, `*.npz` sessions, JSO
 - **MetaDrive is slow on CPU** (real physics); state mode is the CPU-friendly path. Image-mode +
   many iterations want a GPU (Colab/Kaggle).
 - Image-mode `image_size` must be a multiple of 16 (the strided CNN encoder/decoder).
+- **Windows: import MediaPipe before MetaDrive.** MediaPipe pulls in TensorFlow, whose native DLL
+  fails to initialize if loaded *after* MetaDrive/panda3d (`DLL load failed while importing
+  _pywrap_tensorflow_internal`). `scripts/drive_gesture.py` already does this in the right order;
+  if you write your own script using both, build the gesture controller (or `import mediapipe`)
+  before creating the MetaDrive env.
