@@ -35,4 +35,7 @@ def make_env(cfg):
     if cfg.env == "metadrive":
         from .metadrive_env import MetaDriveDrivingEnv
         return MetaDriveDrivingEnv(cfg)
+    if cfg.env == "donkey":
+        from .donkey_env import DonkeyDrivingEnv
+        return DonkeyDrivingEnv(cfg)
     raise ValueError(f"unknown env: {cfg.env}")

@@ -13,9 +13,14 @@ class Config:
     state_dim: int = 35          # used only when obs_type == "state" (verify vs your env)
 
     # --- env ---
-    env: str = "dummy"           # "dummy" | "metadrive"
+    env: str = "dummy"           # "dummy" | "metadrive" | "donkey"
     action_dim: int = 2          # [steer, throttle]
     max_episode_steps: int = 1000
+
+    # --- donkey (DonkeyGym Unity sim; image mode) -- see docs/DONKEYCAR.md ---
+    donkey_level: int = 3        # 0=roads 1=warehouse 2=avc-sparkfun 3=generated-track
+    donkey_exe_path: str = None  # path to donkey_sim.exe; None -> $DONKEY_SIM_PATH or manual launch
+    donkey_throttle: float = 1.0 # our throttle +1 maps to this Donkey throttle (Donkey max is 5.0)
 
     # --- world model ---
     deter_dim: int = 256         # h_t, the deterministic recurrent state

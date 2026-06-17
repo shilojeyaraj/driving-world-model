@@ -2,8 +2,9 @@ numpy
 torch
 # --- dev: tests ---
 pytest
-# --- real driving sim (optional): see docs/METADRIVE.md for install + version gotchas ---
-# metadrive-simulator
+# --- real driving sims (optional) ---
+# metadrive-simulator          # see docs/METADRIVE.md
+# gym-donkeycar                # Unity 3D sim, see docs/DONKEYCAR.md (+ Unity binary; py3.12+: pyasyncore)
 # --- image mode: dream-video rendering + eval metrics ---
 imageio
 # lpips
