@@ -112,8 +112,19 @@ These show judgment, not just knowledge:
 
 - **Dynamics ablation.** The recurrence is isolated behind a one-method `Recurrence` interface
   (`models/recurrence.py`), so `cfg.dynamics` swaps **GRU** ↔ a minimal **Mamba-style selective
-  SSM** and re-runs the *same* eval harness. On the toy they're a wash (one-step dynamics);
-  the value is the controlled-swap machinery for a real long-horizon comparison.
+  SSM** and re-runs the *same* eval harness (`scripts/ablate_dynamics.py`, exp 006). Results
+  (state mode, identical config, only the recurrence differs):
+
+  | metric | rssm (GRU) | mamba (SSM) | note |
+  |---|--:|--:|---|
+  | reward (held-out) | 0.001 | 0.004 | both ≪ 0.1 → learned |
+  | open-loop gap (no-action − model) | **0.224** | 0.190 | both use actions; GRU edges it |
+  | closed-loop return | 96.8 | 94.9 | random ≈ −50 |
+  | throttle / steer | 1.00 / 0.01 | 1.00 / −0.02 | both reach the optimum |
+
+  Both learn, beat the no-action baseline, and drive optimally; GRU edges the SSM but the gap is
+  **a wash on this one-step-dynamics toy** — the value is the controlled-swap machinery, which
+  would actually separate on a long-horizon / partial-observability task.
 - **Visual mode.** A CNN encoder + transposed-CNN decoder make the model learn from **pixels**;
   the same RSSM/ELBO/actor-critic are untouched (obs-type-agnostic core). It learns to **dream
   video** — roll the prior under chosen actions and decode frames (`scripts/dream_video.py`).
