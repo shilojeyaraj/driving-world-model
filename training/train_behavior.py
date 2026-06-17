@@ -138,18 +138,22 @@ def train_behavior(cfg, wm_steps=3000, behavior_steps=3000):
 
     wm = WorldModel(cfg, cfg.action_dim).to(device)
     opt = torch.optim.Adam(wm.parameters(), lr=cfg.lr)
+    print(f"[1/2] training world model ({wm_steps} steps)...", flush=True)
     for step in range(wm_steps):
         if not buf.can_sample():
             break
         batch = {k: torch.as_tensor(v, device=device) for k, v in buf.sample(cfg.batch_size).items()}
-        loss, _ = wm.assemble_loss(batch)
+        loss, m = wm.assemble_loss(batch)
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(wm.parameters(), 100.0)
         opt.step()
+        if step % 200 == 0:
+            print(f"  wm {step}", {k: round(float(v), 4) for k, v in m.items()}, flush=True)
 
     feat_dim = cfg.deter_dim + cfg.stoch_dim
     actor, critic = Actor(cfg, feat_dim, cfg.action_dim), Critic(cfg, feat_dim)
+    print(f"[2/2] training behavior in imagination ({behavior_steps} steps)...", flush=True)
     train_behavior_in_imagination(cfg, wm, buf, actor, critic, steps=behavior_steps)
 
     from utils import save_checkpoint

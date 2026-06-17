@@ -67,7 +67,17 @@ python -m scripts.eval_closed_loop runs/behavior/ckpt.pt   # closed-loop driving
 > train(get_config(env='dummy', obs_type='state', seq_len=20, max_episode_steps=200), steps=1500)"
 > ```
 > Metrics print every 100 steps — you'll see `recon`/`reward` drop and `kl` stay healthy (>0)
-> within the first few hundred. (`train_behavior` is similar; pass smaller `wm_steps`/`behavior_steps`.)
+> within the first few hundred.
+>
+> `train_behavior` is the same story (its defaults are `wm_steps=3000`, `behavior_steps=3000`).
+> Fast (~5–10 min), with progress logging:
+> ```bash
+> python -c "from config import get_config; from training.train_behavior import train_behavior; \
+> train_behavior(get_config(env='dummy', obs_type='state', seq_len=20, max_episode_steps=200), \
+> wm_steps=800, behavior_steps=800)"
+> ```
+> It prints `[1/2] world model` then `[2/2] behavior` so you can see it progressing, and saves
+> `runs/behavior/ckpt.pt`.
 
 ## 5. Dynamics ablation (GRU vs Mamba-style SSM)
 ```bash
