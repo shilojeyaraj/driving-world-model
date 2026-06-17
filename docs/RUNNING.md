@@ -97,6 +97,27 @@ python -m scripts.run_metadrive              # iterated Dreamer loop on MetaDriv
 python -m scripts.record_metadrive           # WATCH it: IDM expert drives -> runs/metadrive_drive.gif
 ```
 
+## 7b. DonkeyCar / DonkeyGym (rendered 3-D camera sim)  — see docs/DONKEYCAR.md
+```bash
+# install (once); on Python 3.12+ also add the asyncore backport shim:
+pip install gym-donkeycar
+pip install pyasyncore pyasynchat            # only needed on py>=3.12 (asyncore was removed)
+# download the Unity sim "DonkeySimWin.zip" from the gym-donkeycar releases, unzip it, then:
+```
+```powershell
+# point at the exe (PowerShell). NOTE the zip nests one level: ...\DonkeySimWin\DonkeySimWin\
+$env:DONKEY_SIM_PATH = "C:\Users\shilo\Downloads\DonkeySimWin\DonkeySimWin\donkey_sim.exe"
+
+# smoke-test the round-trip (launches the sim window, one reset + step) -> expect obs (3,64,64):
+python -c "from config import get_config; from envs.base import make_env; import numpy as np; e=make_env(get_config(env='donkey', obs_type='image', image_size=64, donkey_level=3, max_episode_steps=200)); o=e.reset(); print('obs', o.shape); o,r,d,i=e.step(np.array([0.0,0.5],np.float32)); print('step', o.shape, 'reward', r, 'done', d); e.close()"
+
+# train the world model on rendered camera frames (image mode -> wants a GPU):
+python -c "from config import get_config; from training.train_world_model import train; train(get_config(env='donkey', obs_type='image', image_size=64, device='cuda', deter_dim=128, stoch_dim=32, hidden_dim=128, seq_len=20, max_episode_steps=500), steps=2000)"
+```
+First Unity launch may hit SmartScreen ("More info -> Run anyway"). If the smoke test throws a
+**numpy type error** (`np.bool8`/`np.float_`), that's `gym 0.26` vs NumPy 2 -- run DonkeyGym in a
+**Python 3.11 env with `numpy<2`** (the model code is identical there).
+
 ## 8. Gesture control + driving feedback  — see docs/superpowers/specs/2026-06-15-...
 ```bash
 # 1) train the reference (the "expert" the feedback compares against) -- slow, needs MetaDrive:
