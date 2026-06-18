@@ -68,12 +68,30 @@ def _draw_command(frame, cmd):
     return np.asarray(img)
 
 
+def _hud_text(fb, cmd):
+    """Build the on-screen text dict for MetaDrive's 3-D render(text=...) HUD."""
+    text = {}
+    if cmd:
+        text["gesture"] = cmd
+    if fb:
+        text["safety"] = f"{fb['survival']:.2f}" + ("  RISK!" if fb["risk"] else "")
+        text["style"] = f"steer {fb['d_steer']:+.2f}  thr {fb['d_throttle']:+.2f}"
+        text["value"] = f"{fb['value']:+.2f}"
+    return text
+
+
 def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_gesture.gif",
-                  session="runs/gesture_session.npz", show=None, road_map=None, traffic_density=0.1):
+                  session="runs/gesture_session.npz", show=None, road_map=None, traffic_density=0.1,
+                  render_3d=None):
     import imageio.v2 as imageio
     from envs.metadrive_env import adapt_obs, metadrive_config   # pure (no panda3d at import time)
 
-    show = policy.startswith("gesture") if show is None else show   # any webcam mode -> live window
+    # render_3d -> MetaDrive's rendered 3-D window (the "real" view); else top-down cv2/GIF (headless-ok).
+    # Default: live gesture modes -> 3-D window; scripted policies (random/forward) stay headless.
+    if render_3d is None:
+        render_3d = policy.startswith("gesture")
+    if show is None:
+        show = policy.startswith("gesture") and not render_3d   # cv2 top-down only when NOT 3-D
     if isinstance(road_map, str) and road_map.isdigit():
         road_map = int(road_map)
 
@@ -90,6 +108,7 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
     if road_map is not None:
         cfg.metadrive_map = road_map
     cfg.metadrive_traffic_density = traffic_density
+    cfg.metadrive_render = bool(render_3d)               # -> use_render in metadrive_config
 
     # WINDOWS LOAD-ORDER FIX (important): build the action source -- which imports MediaPipe and
     # therefore TensorFlow's native DLLs -- and open the cv2 window BEFORE loading MetaDrive /
@@ -103,7 +122,10 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         cv2.namedWindow("drive (press q to quit)", cv2.WINDOW_NORMAL)
 
     from metadrive.envs import MetaDriveEnv             # panda3d loads here, AFTER TensorFlow
-    env = MetaDriveEnv({**metadrive_config(cfg), "use_render": False})   # cv2 window shows the view
+    md = metadrive_config(cfg)                          # use_render=True iff render_3d
+    if not render_3d:
+        md["use_render"] = False                        # top-down cv2/GIF path
+    env = MetaDriveEnv(md)
     obs = adapt_obs(env.reset()[0], "state")
     frames, rec = [], {"obs": [], "action": [], "reward": [], "done": []}
     try:
@@ -114,17 +136,20 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
             done = bool(terminated or truncated)
             for k, v in zip(rec, (obs, action, float(r), done)):
                 rec[k].append(v)
-            frame = _resize(np.asarray(env.render(mode="topdown", window=False)))
-            if fb:
-                frame = _draw_hud(frame, fb)
             cmd = label()
-            if cmd:
-                frame = _draw_command(frame, cmd)
-            frames.append(frame)
-            if show:
-                cv2.imshow("drive (press q to quit)", frame[:, :, ::-1])   # RGB -> BGR for cv2
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
+            if render_3d:
+                env.render(text=_hud_text(fb, cmd))           # HUD overlay on the 3-D window
+            else:
+                frame = _resize(np.asarray(env.render(mode="topdown", window=False)))
+                if fb:
+                    frame = _draw_hud(frame, fb)
+                if cmd:
+                    frame = _draw_command(frame, cmd)
+                frames.append(frame)
+                if show:
+                    cv2.imshow("drive (press q to quit)", frame[:, :, ::-1])   # RGB -> BGR for cv2
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
             obs = adapt_obs(env.reset()[0], "state") if done else adapt_obs(raw, "state")
     finally:
         close_src()
@@ -132,16 +157,21 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         if show:
             cv2.destroyAllWindows()
 
-    os.makedirs(os.path.dirname(out_gif) or ".", exist_ok=True)
-    imageio.mimsave(out_gif, frames, duration=0.06, loop=0)
+    if frames:                                           # only the top-down path records frames
+        os.makedirs(os.path.dirname(out_gif) or ".", exist_ok=True)
+        imageio.mimsave(out_gif, frames, duration=0.06, loop=0)
     np.savez(session, obs=np.stack(rec["obs"]), action=np.stack(rec["action"]),
              reward=np.asarray(rec["reward"], np.float32), done=np.asarray(rec["done"], np.float32))
-    print(f"saved {out_gif} ({len(frames)} frames) and {session}  policy={policy} feedback={bool(feedback)}",
-          flush=True)
+    gif_msg = f"{out_gif} ({len(frames)} frames) and " if frames else ""
+    print(f"saved {gif_msg}{session}  policy={policy} render={'3d' if render_3d else 'topdown'} "
+          f"feedback={bool(feedback)}", flush=True)
 
 
 if __name__ == "__main__":
-    pol = sys.argv[1] if len(sys.argv) > 1 else "gesture"
-    ck = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] not in ("-", "none") else None
-    rm = sys.argv[3] if len(sys.argv) > 3 else None
-    drive_gesture(policy=pol, ckpt=ck, road_map=rm)
+    # flags: "2d" forces top-down/GIF, "3d" forces the rendered window (default for gesture modes)
+    a = [x for x in sys.argv[1:] if x not in ("2d", "3d")]
+    r3d = True if "3d" in sys.argv[1:] else (False if "2d" in sys.argv[1:] else None)
+    pol = a[0] if len(a) > 0 else "gesture"
+    ck = a[1] if len(a) > 1 and a[1] not in ("-", "none") else None
+    rm = a[2] if len(a) > 2 else None
+    drive_gesture(policy=pol, ckpt=ck, road_map=rm, render_3d=r3d)

@@ -134,15 +134,21 @@ First Unity launch may hit SmartScreen ("More info -> Run anyway"). If the smoke
 ```bash
 # 1) train the reference (the "expert" the feedback compares against) -- slow, needs MetaDrive:
 python -m training.train_reference                                  # -> runs/reference/ckpt.pt
-# 2) drive by hand with a live feedback HUD (needs a webcam + mediapipe):
+# 2) drive by hand in MetaDrive's rendered 3-D window (needs a webcam + mediapipe + a display):
 python -m scripts.drive_gesture gesture runs/reference/ckpt.pt      # continuous: hand position
-python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt   # discrete commands
+python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt   # discrete commands (3-D by default)
+python -m scripts.drive_gesture gesture-discrete - SSSS            # 3-D highway, no feedback
+python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt 2d  # force the old top-down GIF instead
 # 3) turn a recorded session into a habits report:
 python -m scripts.feedback_report                                  # -> runs/feedback_report.json
 
 # headless smoke (no webcam): drive with a random/forward policy but full render + HUD + report:
 python -m scripts.drive_gesture random runs/reference/ckpt.pt
 ```
+> **Display:** gesture modes open MetaDrive's **rendered 3-D window** by default (the real view),
+> with the feedback + gesture HUD drawn on-screen via `env.render(text=...)`. Add the `2d` flag to
+> fall back to the headless top-down GIF (`runs/drive_gesture.gif`) — useful with no display.
+>
 > **Two gesture modes** (`cfg.gesture_mode`):
 > - **continuous** — hand x = steer, hand height = throttle (smooth, analog).
 > - **discrete** — hand *commands*: 👉 **point left/right = turn**, ✊ **closed fist = go forward**,
