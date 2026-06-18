@@ -51,3 +51,16 @@ class SequenceReplayBuffer:
             for k in batch:
                 batch[k].append(ep[k][sl])
         return {k: np.stack(v) for k, v in batch.items()}
+
+
+def buffer_from_session(obs, action, reward, done, capacity=100_000, seq_len=50):
+    """Replay a flat recorded session (per-step arrays, e.g. from scripts/drive_gesture.py's saved
+    .npz) into a SequenceReplayBuffer so it can train a world model. Episodes split on `done`; a
+    trailing run with no terminal `done` is still kept if it reached `seq_len`."""
+    obs, action = np.asarray(obs), np.asarray(action)
+    reward, done = np.asarray(reward).reshape(-1), np.asarray(done).reshape(-1)
+    buf = SequenceReplayBuffer(capacity, seq_len)
+    for o, a, r, d in zip(obs, action, reward, done):
+        buf.add(o, a, float(r), bool(d))
+    buf._flush()                                  # capture a trailing episode that didn't end on `done`
+    return buf
