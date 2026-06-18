@@ -1,91 +1,107 @@
-# Driving World Model -- model-based learning, built to be learned
+# Driving World Model — a from-scratch Dreamer for model-based RL
 
-A from-scratch world model for driving, structured so you **learn the ML as you build it**.
-The plumbing (env, replay buffer, training/eval loops) is provided and runnable today. The
-ML core (encoder, dynamics, decoder, policy) is left as **deliberate stubs** for you to
-implement -- that's where the understanding lives.
+A **complete, from-scratch Dreamer-style world model** for driving, written in PyTorch. A world
+model is a learned, *differentiable simulator*: it compresses observations into a latent state,
+learns the latent **dynamics**, and predicts reward/continuation — so you can "dream" futures and
+train a control policy **entirely in imagination, with zero environment steps**.
 
-> Read `CONCEPTS.md` next: it maps each file to the ML concept it teaches and the one
-> question you should be able to answer after implementing it.
-
-> **Status.** v1 is complete and verified end-to-end on `DummyDrivingEnv`: world model trains
-> (ELBO), open-loop beats the no-action baseline, and a policy trained purely in imagination
-> drives the real env (return ≈ 95 vs ≈ −51 random). Extensions landed on top:
-> - **Dynamics ablation** — the recurrence is a one-line `cfg.dynamics` swap (`rssm` GRU /
->   `mamba` selective SSM) behind one interface; `scripts/ablate_dynamics.py`, `experiments/006`.
-> - **Visual mode** — a render-based image `DummyDrivingEnv`, CNN encoder + transposed-CNN
->   decoder, and a **dream-video renderer** (`scripts/dream_video.py`) that rolls the prior and
->   decodes latents into predicted frames; `experiments/007`.
->
-> - **MetaDrive (real sim)** — `envs/metadrive_env.py` hardened behind the same contract, with a
->   unit-tested obs adapter, a `scripts/probe_metadrive.py` helper, and **`docs/METADRIVE.md`**.
->   **Live-verified in state mode** (MetaDrive 0.4.3, headless CPU): the world model trains on
->   real lidar+ego obs (`state_dim=259`). Image mode needs a GPU (Colab/Kaggle).
->
-> See **`ARCHITECTURE.md`** for the full walkthrough (ELBO by hand, action timing, λ-returns,
-> posterior collapse) and `experiments/001–008` for the build log. Still designed-for: full-res
-> image mode on a GPU, CARLA, and a windowed-state Transformer recurrence.
-
-## Architecture (three swappable slots)
+Built to be *understood*: every ML core is written from scratch with "why" comments, derived in
+`ARCHITECTURE.md`, and logged step-by-step in `experiments/`. It runs on a **laptop CPU** in
+state mode; pixels/real-sims scale up to a GPU.
 
 ```
- env -> ENCODER -> RSSM (dynamics core) -> DECODER heads
-                       |
-                       v
-                 IMAGINE rollout -> ACTOR-CRITIC --(action)--> env
+ obs ─Encoder─► e_t ─┐
+                     ├─ RSSM (h,z) ─ Decoder ─► ô, r̂, ĉ          (world-model learning, ELBO)
+ prev action ───────┘        │
+                             └─ imagine (prior only) ─► Actor–Critic ─(action)─► env   (behavior)
 ```
 
+## What's in it
+
+- **World model (ELBO).** Encoder + **RSSM** (deterministic GRU memory + stochastic latent,
+  reparameterized) + decoder heads (obs / reward / continue), trained on the variational bound
+  with **free-bits** anti-collapse. `models/`, `ARCHITECTURE.md §2`.
+- **Imagination + model-based RL.** A Tanh-Normal **actor** + value **critic** trained on imagined
+  λ-returns (value gradient through the dynamics) — no env steps. `training/train_behavior.py`.
+- **Two eval axes.** **Open-loop** (predict, action-conditioned beats no-action) and
+  **closed-loop** (the policy actually drives). `eval/`.
+- **Iterated Dreamer loop.** collect-with-policy → train WM → train policy, repeated, to ground the
+  model in the states the policy visits. `training/dreamer_loop.py`.
+- **Dynamics ablation.** The recurrence is a one-line `cfg.dynamics` swap behind one interface —
+  **GRU** (`rssm`) vs a minimal **Mamba-style selective SSM** (`mamba`) — re-scored on the same
+  harness. `models/recurrence.py`, `scripts/ablate_dynamics.py`, `experiments/006`.
+- **Visual mode + "dream video".** CNN encoder + transposed-CNN decoder learn from **pixels**; the
+  renderer rolls the prior under chosen actions and decodes a video of the car driving.
+  `scripts/dream_video.py`, `experiments/007`.
+- **Real simulators** behind one `envs/base.py` contract:
+  - **MetaDrive** (`env="metadrive"`) — live-verified in state mode (real 259-dim lidar+ego);
+    top-down video via `scripts/record_metadrive.py`. `docs/METADRIVE.md`.
+  - **DonkeyCar / DonkeyGym** (`env="donkey"`) — Unity 3-D camera sim, image obs. `docs/DONKEYCAR.md`.
+- **Gesture control + driving feedback.** Drive with your **hand** (MediaPipe HandLandmarker) and
+  get live critique from the world model — **safety** (continue-head forecast), **style** (deviation
+  + surprise vs a behavior-cloned IDM expert), **value** (critic) — as a HUD + a session report.
+  `control/gesture.py`, `eval/feedback.py`, `scripts/drive_gesture.py`,
+  `docs/superpowers/specs/2026-06-15-gesture-feedback-design.md`.
+- **Full test suite** (fast unit/contract + slow training gates), built test-first throughout.
+
+## Results & honest limitations
+
+- ✅ **Toy (state, CPU):** world model trains (KL healthy, no collapse); open-loop beats no-action;
+  a policy trained *only in imagination* drives near-optimally (**return ≈ 95 vs ≈ −51 random**).
+- ✅ **Pixels:** recon → ~0; the dream video tracks reality (**per-pixel MSE ≈ 0.0002** at 64×64).
+- ✅ **Real-sim learning:** MetaDrive world model trains on real lidar (**recon 245 → 0.17**).
+- ⚠️ **Real-sim control is unsolved here:** the policy exploits the model / collapses into a tanh
+  corner — the documented model-based RL failure mode. Fixing it needs DreamerV3-grade stabilizers
+  (two-hot heads, EMA return normalization) + GPU-scale compute. `experiments/010–012`.
+
+The honesty is the point: the repo maps exactly where a simplified, from-scratch Dreamer succeeds
+and where the production tricks become necessary.
+
+## Architecture (swappable slots)
 | Slot | File | Options |
 |------|------|---------|
-| Encoder  | `models/encoder.py`      | CNN / ViT |
-| Dynamics | `models/rssm.py`         | RSSM / Transformer / Mamba  **<- the axis to ablate** |
-| Decoder  | `models/decoder.py`      | CNN / DiT (diffusion) |
+| Encoder  | `models/encoder.py`      | MLP (state) / CNN (image) |
+| Dynamics | `models/recurrence.py` (in `rssm.py`) | **GRU** ✓ / **Mamba-SSM** ✓ / Transformer (designed-for) |
+| Decoder  | `models/decoder.py`      | MLP/CNN heads (obs/reward/continue); DiT designed-for |
 | Policy   | `models/actor_critic.py` | actor-critic in imagination |
 
-## Two observation modes (laptop vs GPU)
-
-`config.obs_type` switches the whole pipeline:
-
-- `"state"` -> low-dim vector (lidar rays + ego state). No big conv nets -> trains on **CPU**.
-  Use this to validate the *mechanism* on your laptop.
-- `"image"` -> camera pixels. Needs a **GPU** (Kaggle: ~30 free GPU hrs/week). Same code.
-
-Develop and debug on `state` locally; switch to `image` for the real runs.
+`config.obs_type` is the laptop/GPU switch: `"state"` (low-dim vector → CPU) vs `"image"` (pixels
+→ GPU). Same code path.
 
 ## Quick start
-
 ```bash
 pip install -r requirements.txt
-python scripts/smoke_test.py        # env + buffer, no GPU, no models needed -- run this first
-# ...implement the model stubs (see CONCEPTS.md)...
-python -m training.collect          # collect trajectories
-python -m training.train_world_model
+python scripts/smoke_test.py            # env + buffer + shapes, no GPU/models
+pytest -m "not slow"                    # fast tests (~seconds)
+
+# train a policy in imagination and watch it drive the toy (CPU, ~6-8 min):
+python -c "from config import get_config; from training.train_behavior import train_behavior; \
+train_behavior(get_config(env='dummy', obs_type='state', seq_len=20, max_episode_steps=200), \
+wm_steps=800, behavior_steps=800)"
+python -m scripts.eval_closed_loop runs/behavior/ckpt.pt
+
+python -m scripts.record_metadrive      # SEE a car drive (rendered top-down) -> runs/metadrive_drive.gif
 ```
+**Full command list for every feature is in `docs/RUNNING.md`** (env vars needed: none).
 
-The smoke test and collect script run against a built-in `DummyDrivingEnv`, so you can
-confirm the plumbing on your laptop before installing MetaDrive or implementing anything.
+## Runs on your laptop vs needs a GPU
+- **Laptop (CPU), works now:** the whole toy pipeline, dynamics ablation, MetaDrive **state** mode,
+  the **top-down rendered** driving video, the gesture demo (with a webcam), and small-resolution
+  dream video.
+- **Needs a GPU:** heavy image-mode training (64×64) — use **Kaggle's free GPU** (`docs/KAGGLE.md`)
+  — and the photoreal 3-D sims (DonkeyGym Unity / MetaDrive camera), which want a GPU + display.
 
-> **Run/test everything:** see **`docs/RUNNING.md`** (every command + which env vars you need —
-> spoiler: none). For the ML story (interviews) see `docs/SYSTEM_OVERVIEW.md`; for the math,
-> `ARCHITECTURE.md`.
+## Docs
+| Doc | What |
+|---|---|
+| `docs/SYSTEM_OVERVIEW.md` | the ML story + interview Q&A |
+| `ARCHITECTURE.md` | the math: ELBO by hand, action timing, λ-returns, posterior collapse |
+| `docs/RUNNING.md` | every run/test command (+ env vars) |
+| `docs/METADRIVE.md` · `docs/DONKEYCAR.md` · `docs/KAGGLE.md` | real sims + GPU |
+| `docs/superpowers/specs/` | design specs (v1 world model; gesture-feedback) |
+| `experiments/001–017` | the build log (one entry per milestone) · `CONCEPTS.md` (the ML map) |
 
-## How the stubs are tagged
-
-Every file's header says one of:
-- `IMPLEMENT FROM SCRATCH` -- write it yourself. This is the point. Don't import a solution.
-- `OK TO USE A LIBRARY`    -- plumbing; use/modify freely.
-
-Each from-scratch stub raises `NotImplementedError` and carries a `Concept:` (the idea it
-teaches) and a `Question:` (what you should be able to answer once it works).
-
-## Suggested order
-
-1. `scripts/smoke_test.py` passes (plumbing sanity).
-2. `models/encoder.py` + `models/decoder.py` on `obs_type="state"` -- get reconstruction working.
-3. `models/rssm.py` + `models/world_model.py` -- the ELBO; watch for posterior collapse.
-4. `eval/open_loop.py` -- prove it predicts (action-conditioned beats not).
-5. `models/actor_critic.py` + `training/train_behavior.py` -- policy in imagination.
-6. `eval/closed_loop.py` -- does it actually drive?
-7. Ablate the dynamics slot; switch to `obs_type="image"` on Kaggle for the real runs.
-
-Log every step in `experiments/` using `LOG_TEMPLATE.md`.
+## How it was built
+From-scratch, test-first, one milestone at a time. Each component carries a `Concept:` / `Question:`
+header (see `CONCEPTS.md`) and a logged experiment with a one-line takeaway. The plumbing
+(`envs/`, `data/`, training/eval loops) is "OK to use a library"; the ML cores were written by hand.
