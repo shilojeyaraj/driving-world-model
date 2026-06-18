@@ -57,6 +57,14 @@ class Config:
     gesture_deadzone: float = 0.1     # zero out |signal| below this
     forecast_horizon: int = 15        # steps the safety metric imagines your action forward
     risk_threshold: float = 0.5       # predicted survival below this -> safety alert
+    # discrete-command mode: point-left/right=steer, fist=go, open-palm=stop, swipe-down=reverse
+    gesture_mode: str = "continuous"  # "continuous" (hand position) | "discrete" (commands)
+    gesture_mirror: bool = True       # mirror the webcam frame so steering feels like a mirror
+    gesture_steer_mag: float = 0.6    # steer magnitude for a point-left / point-right command
+    gesture_throttle_mag: float = 0.5 # throttle for a closed-fist "go forward"
+    gesture_reverse_mag: float = 0.4  # reverse throttle for a downward "backward" swipe
+    gesture_steer_sign: float = 1.0   # set to -1.0 if point-left/right come out reversed for you
+    gesture_backward_dy: float = 0.06 # downward hand motion (per frame, normalized) -> reverse
 
     # --- infra ---
     device: str = "cpu"          # "cpu" for state runs; "cuda" for image runs on Kaggle

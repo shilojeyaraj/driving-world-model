@@ -1,15 +1,18 @@
 """Drive MetaDrive and (optionally) overlay live driving feedback (GF2 + GF5).
 
 Action source is pluggable so the whole pipeline is verifiable WITHOUT a camera:
-  policy="gesture"  -> your hand via the webcam (needs cv2 + mediapipe + a camera)
+  policy="gesture"           -> hand POSITION drives (continuous): x=steer, height=throttle
+  policy="gesture-discrete"  -> hand COMMANDS: point left/right=turn, fist=go, palm=stop, swipe-down=reverse
   policy="random" / "forward"  -> headless smoke of the render + feedback + HUD + recording
 
 If a reference checkpoint is given (runs/reference/ckpt.pt from train_reference), the 3-signal
 DrivingFeedback runs live and a HUD is drawn on the top-down view. The session (obs/action/...)
 is saved so scripts/feedback_report.py can analyze it offline.
 
-Usage:  python -m scripts.drive_gesture                       # gesture, no feedback
-        python -m scripts.drive_gesture gesture runs/reference/ckpt.pt   # + live feedback HUD
+Usage:  python -m scripts.drive_gesture                                  # continuous gesture, no feedback
+        python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt  # point/fist/palm + HUD
+        python -m scripts.drive_gesture gesture runs/reference/ckpt.pt   # continuous + live feedback HUD
+        python -m scripts.drive_gesture gesture-discrete - SSSS          # discrete commands on a highway
         python -m scripts.drive_gesture random  runs/reference/ckpt.pt   # headless smoke
 """
 import os, sys
@@ -19,15 +22,18 @@ import numpy as np
 
 
 def _action_source(policy, cfg):
-    """Return (get_action(obs)->np.ndarray, close()). Gesture uses the webcam; others are headless."""
-    if policy == "gesture":
+    """Return (get_action(obs)->np.ndarray, close(), label()->str). Gesture uses the webcam;
+    others are headless. label() reports the discrete command (for the HUD) or ""."""
+    if policy in ("gesture", "gesture-discrete"):
         from control.gesture import GestureController
+        if policy == "gesture-discrete":
+            cfg.gesture_mode = "discrete"
         ctrl = GestureController(cfg)
         ctrl.calibrate()
-        return (lambda obs: ctrl.get_action()), ctrl.close
+        return (lambda obs: ctrl.get_action()), ctrl.close, (lambda: getattr(ctrl, "last_command", ""))
     if policy == "forward":
-        return (lambda obs: np.array([0.0, 0.4], np.float32)), (lambda: None)
-    return (lambda obs: np.random.uniform(-1, 1, cfg.action_dim).astype(np.float32)), (lambda: None)
+        return (lambda obs: np.array([0.0, 0.4], np.float32)), (lambda: None), (lambda: "")
+    return (lambda obs: np.random.uniform(-1, 1, cfg.action_dim).astype(np.float32)), (lambda: None), (lambda: "")
 
 
 def _resize(frame, size=420):
@@ -48,6 +54,17 @@ def _draw_hud(frame, fb):
     d.text((12, 32), f"safety {surv:.2f}{risk}", fill=(0, 0, 0))
     d.text((12, 48), f"steer dev {fb['d_steer']:+.2f}   throttle dev {fb['d_throttle']:+.2f}", fill=(0, 0, 0))
     d.text((12, 64), f"value {fb['value']:+.2f}", fill=(0, 0, 0))
+    return np.asarray(img)
+
+
+def _draw_command(frame, cmd):
+    """Top-right label showing the discrete gesture command (forward/left/right/stop/backward)."""
+    from PIL import Image, ImageDraw
+    img = Image.fromarray(frame)
+    d = ImageDraw.Draw(img)
+    w = frame.shape[1]
+    d.rectangle([w - 132, 8, w - 8, 26], fill=(255, 255, 255), outline=(0, 0, 0))
+    d.text((w - 128, 11), f"gesture: {cmd}", fill=(0, 0, 0))
     return np.asarray(img)
 
 
@@ -79,7 +96,7 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
     # panda3d. The reverse order makes TF's DLL init fail ("DLL load failed while importing
     # _pywrap_tensorflow_internal"). Verified: metadrive-then-mediapipe fails, mediapipe-then-
     # metadrive is fine.
-    get_action, close_src = _action_source(policy, cfg)
+    get_action, close_src, label = _action_source(policy, cfg)
     cv2 = None
     if show:
         import cv2
@@ -100,6 +117,9 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
             frame = _resize(np.asarray(env.render(mode="topdown", window=False)))
             if fb:
                 frame = _draw_hud(frame, fb)
+            cmd = label()
+            if cmd:
+                frame = _draw_command(frame, cmd)
             frames.append(frame)
             if show:
                 cv2.imshow("drive (press q to quit)", frame[:, :, ::-1])   # RGB -> BGR for cv2

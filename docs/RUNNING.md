@@ -135,13 +135,21 @@ First Unity launch may hit SmartScreen ("More info -> Run anyway"). If the smoke
 # 1) train the reference (the "expert" the feedback compares against) -- slow, needs MetaDrive:
 python -m training.train_reference                                  # -> runs/reference/ckpt.pt
 # 2) drive by hand with a live feedback HUD (needs a webcam + mediapipe):
-python -m scripts.drive_gesture gesture runs/reference/ckpt.pt      # -> runs/drive_gesture.gif
+python -m scripts.drive_gesture gesture runs/reference/ckpt.pt      # continuous: hand position
+python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt   # discrete commands
 # 3) turn a recorded session into a habits report:
 python -m scripts.feedback_report                                  # -> runs/feedback_report.json
 
 # headless smoke (no webcam): drive with a random/forward policy but full render + HUD + report:
 python -m scripts.drive_gesture random runs/reference/ckpt.pt
 ```
+> **Two gesture modes** (`cfg.gesture_mode`):
+> - **continuous** — hand x = steer, hand height = throttle (smooth, analog).
+> - **discrete** — hand *commands*: 👉 **point left/right = turn**, ✊ **closed fist = go forward**,
+>   ✋ **open palm = stop**, **swipe hand down = reverse**. Uses the same pretrained MediaPipe
+>   hand model (no training). If left/right feel swapped on your camera, set
+>   `get_config(gesture_steer_sign=-1.0)`. Tune `gesture_steer_mag` / `gesture_throttle_mag` /
+>   `gesture_backward_dy` to taste.
 
 ## 9. Where outputs go
 Everything writes under `runs/` (checkpoints `*.pt`, GIFs, `*.npz` sessions, JSON reports) — all
