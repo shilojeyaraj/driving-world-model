@@ -151,11 +151,13 @@ python -m scripts.drive_gesture random runs/reference/ckpt.pt
 >
 > **Two gesture modes** (`cfg.gesture_mode`):
 > - **continuous** — hand x = steer, hand height = throttle (smooth, analog).
-> - **discrete** — hand *commands*: 👉 **point left/right = turn**, ✊ **closed fist = go forward**,
->   ✋ **open palm = stop**, **swipe hand down = reverse**. Uses the same pretrained MediaPipe
->   hand model (no training). If left/right feel swapped on your camera, set
->   `get_config(gesture_steer_sign=-1.0)`. Tune `gesture_steer_mag` / `gesture_throttle_mag` /
->   `gesture_backward_dy` to taste.
+> - **discrete** — *position steers + pose throttles*: **move your hand left/right = steer**,
+>   ✊ **closed fist = go forward**, ✋ **open palm = coast/stop**, 🙏 **two hands together (prayer)
+>   = reverse**. Steer and throttle are independent, so a **fist held to the right drives forward
+>   AND right at the same time** (and you can ease off speed while turning). Same pretrained
+>   MediaPipe hand model, now tracking up to two hands (no training). If left/right feel swapped,
+>   set `get_config(gesture_steer_sign=-1.0)`; tune `gesture_steer_mag` / `gesture_throttle_mag` /
+>   `gesture_prayer_thresh` to taste.
 
 ## 9. Where outputs go
 Everything writes under `runs/` (checkpoints `*.pt`, GIFs, `*.npz` sessions, JSON reports) — all

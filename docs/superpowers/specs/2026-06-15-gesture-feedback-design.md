@@ -50,13 +50,17 @@ The gesture controller is an **action source** (like `random_policy` / `Actor`),
 - `class GestureController:` `__init__(cfg)`, `get_action() -> np.ndarray`, `calibrate()`,
   `close()`. Lazily imports `cv2` + `mediapipe` (so the module imports without them); extracts
   hand-center-x → `steer_raw` and hand height/openness → `throttle_raw`, delegates to the pure fn.
-- **Discrete-command mode (`cfg.gesture_mode="discrete"`)** — pure, camera-free, unit-tested:
-  `extended_fingers(pts)` (which fingers are up, from landmark geometry) → `classify_gesture(pts,
-  prev_center, *, backward_dy)` → a COMMAND in `{left,right,forward,stop,backward,none}` →
-  `command_to_action(cmd, prev, *, steer_mag, throttle_mag, reverse_mag, steer_sign, smoothing,
-  straighten)`, a steer/throttle state machine that holds one axis while a command updates the
-  other. Mapping: 👉 point left/right = turn, ✊ fist = forward, ✋ open palm = stop, swipe-down
-  = reverse. `GestureController` mirrors the frame and branches on `cfg.gesture_mode`.
+- **Discrete mode (`cfg.gesture_mode="discrete"`) — "position steers + pose throttles"** (chosen
+  scheme; pure + camera-free + unit-tested). The two axes are independent so **forward + turn
+  happen at the same time**:
+  - `steer_from_position(pts, *, deadzone)` — hand x-position → steer in [-1,1].
+  - `extended_fingers(pts)` + `throttle_command(hands, *, prayer_thresh)` — ✊ fist = `"forward"`,
+    ✋ open palm / relaxed = `"coast"`, 🙏 two hands together (`hands_together`) = `"reverse"`.
+  - `position_pose_action(hands, prev, *, steer_mag, throttle_mag, reverse_mag, steer_sign,
+    deadzone, smoothing, straighten, prayer_thresh) -> (action, cmd)` — combines them, EMA-smoothed.
+  `GestureController` mirrors the frame, tracks up to **two hands** (`num_hands=2`, for the prayer
+  sign), and branches on `cfg.gesture_mode`. *(The earlier pointing/latch logic —
+  `classify_gesture` + `command_to_action` — remains as tested utilities / an alternative mode.)*
 
 ### 4.2 `training/train_reference.py` (mirrors `training/train_behavior.py`)
 `train_reference(cfg, ...) -> (wm, ref_actor, critic)`:
@@ -93,14 +97,14 @@ gesture_smoothing: float = 0.7
 gesture_deadzone: float = 0.1
 forecast_horizon: int = 15
 risk_threshold: float = 0.5
-# discrete-command mode:
-gesture_mode: str = "continuous"   # "continuous" | "discrete"
-gesture_mirror: bool = True        # mirror the webcam frame so steering feels natural
-gesture_steer_mag: float = 0.6     # steer for point-left/right
-gesture_throttle_mag: float = 0.5  # throttle for closed-fist "go"
-gesture_reverse_mag: float = 0.4   # reverse throttle for the down-swipe
-gesture_steer_sign: float = 1.0    # set -1.0 if left/right come out reversed
-gesture_backward_dy: float = 0.06  # downward hand motion (per frame) -> reverse
+# discrete mode (position steers + pose throttles):
+gesture_mode: str = "continuous"     # "continuous" | "discrete"
+gesture_mirror: bool = True          # mirror the webcam frame so steering feels natural
+gesture_steer_mag: float = 0.8       # max steer at full left/right hand deflection
+gesture_throttle_mag: float = 0.5    # throttle for closed-fist "go"
+gesture_reverse_mag: float = 0.4     # reverse throttle for the prayer (two-hands) sign
+gesture_steer_sign: float = 1.0      # set -1.0 if left/right come out reversed
+gesture_prayer_thresh: float = 0.15  # how close two hands must be to mean "reverse"
 ```
 
 ## 6. Checkpointing
@@ -160,7 +164,8 @@ python -m scripts.feedback_report                                        # -> ru
 # 4) train the world model on YOUR recorded gesture session (.npz from step 1/2):
 python -m scripts.train_on_gesture runs/gesture_session.npz              # -> runs/gesture_reference/ckpt.pt
 ```
-**Discrete cheatsheet:** 👉 point left/right = turn · ✊ closed fist = go forward · ✋ open palm =
-stop · swipe hand down = reverse. If left/right feel swapped on your camera, set
+**Discrete cheatsheet (position + pose):** move hand left/right = steer · ✊ closed fist = go
+forward · ✋ open palm = coast/stop · 🙏 two hands together (prayer) = reverse. Steer + throttle
+combine, so a fist held to the right = forward AND right at once. If left/right feel swapped, set
 `get_config(gesture_steer_sign=-1.0)`; tune `gesture_steer_mag` / `gesture_throttle_mag` /
-`gesture_backward_dy` to taste. Outputs (GIF, `.npz` session, JSON report) land under `runs/`.
+`gesture_prayer_thresh` to taste. Outputs (GIF, `.npz` session, JSON report) land under `runs/`.

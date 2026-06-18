@@ -57,14 +57,16 @@ class Config:
     gesture_deadzone: float = 0.1     # zero out |signal| below this
     forecast_horizon: int = 15        # steps the safety metric imagines your action forward
     risk_threshold: float = 0.5       # predicted survival below this -> safety alert
-    # discrete-command mode: point-left/right=steer, fist=go, open-palm=stop, swipe-down=reverse
-    gesture_mode: str = "continuous"  # "continuous" (hand position) | "discrete" (commands)
+    # discrete mode: hand x-position=steer, fist=go forward, open palm=coast/stop,
+    # two hands together (prayer)=reverse -- steer + throttle combine (forward + turn at once)
+    gesture_mode: str = "continuous"  # "continuous" (hand position) | "discrete" (position+pose)
     gesture_mirror: bool = True       # mirror the webcam frame so steering feels like a mirror
-    gesture_steer_mag: float = 0.6    # steer magnitude for a point-left / point-right command
+    gesture_steer_mag: float = 0.8    # max steer at full left/right hand deflection
     gesture_throttle_mag: float = 0.5 # throttle for a closed-fist "go forward"
-    gesture_reverse_mag: float = 0.4  # reverse throttle for a downward "backward" swipe
-    gesture_steer_sign: float = 1.0   # set to -1.0 if point-left/right come out reversed for you
-    gesture_backward_dy: float = 0.06 # downward hand motion (per frame, normalized) -> reverse
+    gesture_reverse_mag: float = 0.4  # reverse throttle for the two-hands "prayer" sign
+    gesture_steer_sign: float = 1.0   # set to -1.0 if left/right come out reversed for you
+    gesture_prayer_thresh: float = 0.15  # how close two hands must be (normalized) to mean "reverse"
+    gesture_backward_dy: float = 0.06 # (legacy: down-swipe reverse, used by classify_gesture)
 
     # --- infra ---
     device: str = "cpu"          # "cpu" for state runs; "cuda" for image runs on Kaggle

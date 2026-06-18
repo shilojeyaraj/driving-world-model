@@ -102,6 +102,51 @@ def command_to_action(command, prev=None, *, steer_mag=0.6, throttle_mag=0.5, re
     return np.clip(smoothing * prev + (1.0 - smoothing) * target, -1.0, 1.0).astype(np.float32)
 
 
+# ----- chosen scheme (GF1c): position steers + pose throttles -> forward + turn AT THE SAME TIME -----
+# Steering comes from the hand's x-position (continuous), throttle from its pose, so the two axes are
+# independent and simultaneous. Reverse = a two-hands-together "prayer" sign. All pure / camera-free.
+
+def hands_together(hand_a, hand_b, thresh=0.15):
+    """True when two hands' centers are within `thresh` (normalized) -- the 'prayer' / reverse sign."""
+    return bool(np.linalg.norm(hand_center(hand_a) - hand_center(hand_b)) < thresh)
+
+
+def throttle_command(hands, *, prayer_thresh=0.15):
+    """Throttle intent from the visible hands (list of (21,2) arrays):
+      two hands together -> "reverse",  one closed fist -> "forward",  else -> "coast"
+    (open palm / relaxed / no hand all release the throttle)."""
+    if len(hands) >= 2 and hands_together(hands[0], hands[1], prayer_thresh):
+        return "reverse"
+    if len(hands) >= 1:
+        return "forward" if int(extended_fingers(hands[0])[1:5].sum()) == 0 else "coast"
+    return "coast"
+
+
+def steer_from_position(pts, *, deadzone=0.1):
+    """Steering in [-1,1] from the hand's horizontal position (left of frame -> -1, right -> +1)."""
+    raw = 2.0 * float(np.asarray(pts, dtype=float)[:, 0].mean()) - 1.0
+    return 0.0 if abs(raw) < deadzone else float(np.clip(raw, -1.0, 1.0))
+
+
+def position_pose_action(hands, prev=None, *, steer_mag=0.8, throttle_mag=0.5, reverse_mag=0.4,
+                         steer_sign=1.0, deadzone=0.1, smoothing=0.5, straighten=0.5,
+                         prayer_thresh=0.15):
+    """Hand x-position sets STEER, hand pose sets THROTTLE -- the two combine, so a fist held to the
+    right drives forward AND right at once. `hands` = list of (21,2) arrays (0/1/2 hands). EMA-
+    smoothed like the other mappings; with no hand the wheel straightens and throttle releases.
+    Returns (action[steer,throttle] in [-1,1], command-str for the HUD)."""
+    prev = np.zeros(2, dtype=np.float32) if prev is None else np.asarray(prev, dtype=np.float32)
+    cmd = throttle_command(hands, prayer_thresh=prayer_thresh)
+    if hands:
+        s_t = steer_sign * steer_mag * steer_from_position(hands[0], deadzone=deadzone)
+    else:
+        s_t = float(prev[0]) * (1.0 - straighten)         # no hand seen -> straighten the wheel
+    t_t = {"forward": throttle_mag, "reverse": -reverse_mag, "coast": 0.0}[cmd]
+    target = np.array([s_t, t_t], dtype=np.float32)
+    action = np.clip(smoothing * prev + (1.0 - smoothing) * target, -1.0, 1.0).astype(np.float32)
+    return action, cmd
+
+
 def _ensure_hand_model(path):
     """Download MediaPipe's pretrained hand_landmarker.task once (cached at `path`)."""
     if not os.path.exists(path):
@@ -112,11 +157,13 @@ def _ensure_hand_model(path):
 
 
 class GestureController:
-    """Live webcam controller. Reads one hand with MediaPipe's pretrained HandLandmarker and
-    returns a smoothed [steer, throttle] action in [-1,1]. Two modes (cfg.gesture_mode):
+    """Live webcam controller. Tracks up to TWO hands with MediaPipe's pretrained HandLandmarker
+    and returns a smoothed [steer, throttle] action in [-1,1]. Two modes (cfg.gesture_mode):
       "continuous" -> steer from the hand's x position, throttle from its height.
-      "discrete"   -> point left/right = turn, closed fist = go, open palm = stop,
-                      downward swipe = reverse  (classify_gesture + command_to_action).
+      "discrete"   -> position steers + pose throttles (position_pose_action): hand x-position =
+                      steer, closed fist = go forward, open palm = coast/stop, two hands together
+                      (prayer) = reverse. Steer + throttle are independent, so forward + turn happen
+                      at the same time.
 
     Opens the webcam FIRST (fail fast if absent) before importing MediaPipe / downloading the model.
     On Windows, build this controller BEFORE creating a MetaDrive env -- importing MediaPipe pulls
@@ -135,22 +182,19 @@ class GestureController:
         self._mp = mp
         model = _ensure_hand_model(os.path.join(cfg.log_dir, "hand_landmarker.task"))
         opts = HandLandmarkerOptions(base_options=BaseOptions(model_asset_path=model),
-                                     num_hands=1, running_mode=RunningMode.IMAGE)
+                                     num_hands=2, running_mode=RunningMode.IMAGE)  # 2 -> prayer/reverse
         self._landmarker = HandLandmarker.create_from_options(opts)
         self.cfg = cfg
         self.mode = getattr(cfg, "gesture_mode", "continuous")
         self._prev = None
-        self._prev_center = None
-        self.last_command = "none"            # for HUDs: the discrete command read this frame
+        self.last_command = "none"            # for HUDs: the command read this frame
 
-    def _detect(self, frame_bgr):
-        """One hand's 21 landmarks as an (21,2) array in [0,1], or None if no hand seen."""
+    def _detect_hands(self, frame_bgr):
+        """All detected hands (up to 2) as a list of (21,2) arrays in [0,1]; [] if none."""
         rgb = self._cv2.cvtColor(frame_bgr, self._cv2.COLOR_BGR2RGB)
         mp_image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=np.ascontiguousarray(rgb))
         res = self._landmarker.detect(mp_image)
-        if not res.hand_landmarks:
-            return None
-        return np.array([[p.x, p.y] for p in res.hand_landmarks[0]], dtype=float)
+        return [np.array([[p.x, p.y] for p in h], dtype=float) for h in res.hand_landmarks]
 
     def get_action(self):
         ok, frame = self._cap.read()
@@ -158,26 +202,24 @@ class GestureController:
             return self._prev if self._prev is not None else np.zeros(2, dtype=np.float32)
         if getattr(self.cfg, "gesture_mirror", True):
             frame = self._cv2.flip(frame, 1)              # mirror -> control feels natural
-        pts = self._detect(frame)
+        hands = self._detect_hands(frame)
 
         if self.mode == "discrete":
-            cmd = "none" if pts is None else classify_gesture(
-                pts, self._prev_center, backward_dy=getattr(self.cfg, "gesture_backward_dy", 0.06))
-            self.last_command = cmd
-            self._prev_center = None if pts is None else hand_center(pts)
-            self._prev = command_to_action(
-                cmd, prev=self._prev, steer_mag=getattr(self.cfg, "gesture_steer_mag", 0.6),
+            self._prev, cmd = position_pose_action(
+                hands, prev=self._prev, steer_mag=getattr(self.cfg, "gesture_steer_mag", 0.8),
                 throttle_mag=getattr(self.cfg, "gesture_throttle_mag", 0.5),
                 reverse_mag=getattr(self.cfg, "gesture_reverse_mag", 0.4),
                 steer_sign=getattr(self.cfg, "gesture_steer_sign", 1.0),
-                smoothing=self.cfg.gesture_smoothing)
+                deadzone=self.cfg.gesture_deadzone, smoothing=self.cfg.gesture_smoothing,
+                prayer_thresh=getattr(self.cfg, "gesture_prayer_thresh", 0.15))
+            self.last_command = cmd
             return self._prev
 
-        # continuous: hand-center x -> steer, hand height -> throttle
-        if pts is None:
+        # continuous: first hand's center x -> steer, height -> throttle
+        if not hands:
             steer_raw, throttle_raw = 0.0, 0.0
         else:
-            cx, cy = pts[:, 0].mean(), pts[:, 1].mean()
+            cx, cy = hands[0][:, 0].mean(), hands[0][:, 1].mean()
             steer_raw, throttle_raw = 2.0 * cx - 1.0, 1.0 - 2.0 * cy
         self._prev = landmarks_to_action(
             steer_raw, throttle_raw, prev=self._prev,
@@ -189,7 +231,6 @@ class GestureController:
         for _ in range(frames):
             self._cap.read()
         self._prev = None
-        self._prev_center = None
 
     def close(self):
         if getattr(self, "_cap", None) is not None:

@@ -6,7 +6,9 @@ import numpy as np
 import pytest
 
 from control.gesture import (landmarks_to_action, extended_fingers, hand_center,
-                             classify_gesture, command_to_action)
+                             classify_gesture, command_to_action,
+                             hands_together, throttle_command, steer_from_position,
+                             position_pose_action)
 
 
 # --- synthetic hand builder (no camera): 21 MediaPipe landmarks as an (21,2) array ---
@@ -86,6 +88,53 @@ def test_command_to_action_steer_sign_flips_direction():
 def test_command_to_action_none_straightens_steer():
     a = command_to_action("none", prev=[0.8, 0.5], smoothing=0.0, straighten=0.5)
     assert np.allclose(a, [0.4, 0.5])                     # steer decays toward 0, throttle held
+
+
+# --- chosen scheme: position steers + pose throttles (forward+turn at the same time) ---
+def test_hands_together_detects_prayer():
+    a = _hand([True] * 5, center=(0.50, 0.5))
+    b = _hand([True] * 5, center=(0.54, 0.5))
+    assert hands_together(a, b, thresh=0.15)
+    far = _hand([True] * 5, center=(0.88, 0.5))
+    assert not hands_together(a, far, thresh=0.15)
+
+
+def test_throttle_command_fist_palm_none_prayer():
+    fist = _hand([False] * 5, center=(0.5, 0.5))
+    palm = _hand([True] * 5, center=(0.5, 0.5))
+    assert throttle_command([fist]) == "forward"          # closed fist -> go
+    assert throttle_command([palm]) == "coast"            # open palm -> coast/stop
+    assert throttle_command([]) == "coast"                # no hand -> coast
+    a = _hand([True] * 5, center=(0.50, 0.5))
+    b = _hand([True] * 5, center=(0.54, 0.5))
+    assert throttle_command([a, b]) == "reverse"          # two hands together (prayer) -> reverse
+
+
+def test_steer_from_position_left_right_center():
+    right = steer_from_position(_hand([False] * 5, center=(0.85, 0.5)), deadzone=0.1)
+    left = steer_from_position(_hand([False] * 5, center=(0.15, 0.5)), deadzone=0.1)
+    center = steer_from_position(_hand([False] * 5, center=(0.50, 0.5)), deadzone=0.1)
+    assert right > 0.3 and left < -0.3 and center == 0.0
+
+
+def test_position_pose_forward_and_right_at_once():
+    # closed fist held to the RIGHT -> steer right AND throttle forward simultaneously
+    fist_right = _hand([False] * 5, center=(0.85, 0.5))
+    act, cmd = position_pose_action([fist_right], prev=[0, 0], smoothing=0.0,
+                                    steer_mag=1.0, throttle_mag=0.5)
+    assert cmd == "forward" and act[0] > 0.3 and act[1] > 0.3   # BOTH axes active at once
+
+
+def test_position_pose_prayer_reverses():
+    a = _hand([True] * 5, center=(0.50, 0.5))
+    b = _hand([True] * 5, center=(0.54, 0.5))
+    act, cmd = position_pose_action([a, b], prev=[0, 0.5], smoothing=0.0, reverse_mag=0.4)
+    assert cmd == "reverse" and act[1] < 0
+
+
+def test_position_pose_no_hands_coasts_and_straightens():
+    act, cmd = position_pose_action([], prev=[0.8, 0.5], smoothing=0.0, straighten=0.5)
+    assert cmd == "coast" and abs(act[0]) < 0.8 and act[1] == 0.0
 
 
 def test_action_in_range_and_shape():
