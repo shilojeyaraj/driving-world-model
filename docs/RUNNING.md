@@ -96,7 +96,11 @@ python -m scripts.drive_from_pixels          # policy trained + driving from pix
 ```bash
 python -m scripts.probe_metadrive state      # print the real obs dim -> set cfg.state_dim (259)
 python -m scripts.run_metadrive              # iterated Dreamer loop on MetaDrive (state mode)
-python -m scripts.record_metadrive           # WATCH it: IDM expert drives -> runs/metadrive_drive.gif
+python -m scripts.record_metadrive           # WATCH it (top-down GIF): IDM -> runs/metadrive_drive.gif
+# rendered 3-D window (the docs look; needs a display, integrated GPU is fine):
+python -m metadrive.examples.drive_in_single_agent_env        # MetaDrive's own demo (WASD to drive)
+python -m scripts.watch_metadrive_3d                          # 3-D window, IDM expert drives
+python -m scripts.watch_metadrive_3d runs/metadrive/ckpt.pt   # 3-D window, OUR trained policy
 ```
 
 ## 7b. DonkeyCar / DonkeyGym (rendered 3-D camera sim)  — see docs/DONKEYCAR.md

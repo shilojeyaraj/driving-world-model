@@ -108,14 +108,21 @@ python -m scripts.run_metadrive       # collect -> train WM -> train policy -> c
                                        # (state_dim=259 preset; saves runs/metadrive/ckpt.pt)
 ```
 
-**Watch the simulation (record a video):**
+**Watch the simulation — top-down GIF (headless-friendly):**
 ```bash
 python -m scripts.record_metadrive          # IDM expert drives; saves runs/metadrive_drive.gif
 python -m scripts.record_metadrive forward  # a simple throttle-forward policy instead
 ```
-Renders MetaDrive top-down offscreen (no GUI window needed; verified working here via the
-`wglGraphicsPipe` OpenGL backend) and saves a playable GIF. For a live 3-D window instead, run a
-script locally with `MetaDriveEnv(dict(use_render=True))` (opens an interactive viewer).
+Renders MetaDrive top-down offscreen (no window; works headless via the `wglGraphicsPipe` backend).
+
+**Watch the simulation — rendered 3-D window (the "docs look"; needs a DISPLAY):**
+```bash
+python -m metadrive.examples.drive_in_single_agent_env        # MetaDrive's own demo (WASD)
+python -m scripts.watch_metadrive_3d                          # 3-D window, IDM expert drives
+python -m scripts.watch_metadrive_3d runs/metadrive/ckpt.pt   # 3-D window, OUR trained policy
+```
+The 3-D view uses your integrated GPU + a display (your laptop — not headless/Kaggle). In code,
+`get_config(env="metadrive", metadrive_render=True, ...)` opens the same 3-D window for any run.
 
 **Or step by step:**
 ```bash

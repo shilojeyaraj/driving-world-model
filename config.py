@@ -17,6 +17,8 @@ class Config:
     action_dim: int = 2          # [steer, throttle]
     max_episode_steps: int = 1000
 
+    metadrive_render: bool = False   # True -> open MetaDrive's 3-D render window (needs a display)
+
     # --- donkey (DonkeyGym Unity sim; image mode) -- see docs/DONKEYCAR.md ---
     donkey_level: int = 3        # 0=roads 1=warehouse 2=avc-sparkfun 3=generated-track
     donkey_exe_path: str = None  # path to donkey_sim.exe; None -> $DONKEY_SIM_PATH or manual launch

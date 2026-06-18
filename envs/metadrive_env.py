@@ -47,7 +47,8 @@ class MetaDriveDrivingEnv(DrivingEnv):
         self.action_dim = cfg.action_dim                # MetaDrive action = [steering, throttle], in [-1,1]
         from metadrive.envs import MetaDriveEnv         # imported here so the dummy env runs without it
 
-        md_cfg = dict(use_render=False, horizon=cfg.max_episode_steps)
+        # use_render=True opens MetaDrive's 3-D chase-camera window (the docs look); needs a display.
+        md_cfg = dict(use_render=getattr(cfg, "metadrive_render", False), horizon=cfg.max_episode_steps)
         if cfg.obs_type == "image":
             # VERSION-SPECIFIC: enabling a camera + image observation differs across releases
             # (older: image_observation=True; newer: a `sensors=` RGBCamera spec). See
