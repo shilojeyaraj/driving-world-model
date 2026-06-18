@@ -21,11 +21,16 @@ def _frame(env, size=320):
     return np.asarray(Image.fromarray(rgb).resize((size, size)))
 
 
-def main(policy="idm", steps=250, out="runs/metadrive_drive.gif"):
+def main(policy="idm", steps=250, out="runs/metadrive_drive.gif", road_map=None, traffic_density=0.1):
     import imageio.v2 as imageio
     from metadrive.envs import MetaDriveEnv
+    from config import get_config
+    from envs.metadrive_env import metadrive_config
 
-    cfg = dict(use_render=False, horizon=1000)
+    if isinstance(road_map, str) and road_map.isdigit():
+        road_map = int(road_map)
+    cfg = metadrive_config(get_config(env="metadrive", obs_type="state", max_episode_steps=1000,
+                                      metadrive_map=road_map, metadrive_traffic_density=traffic_density))
     use_idm = False
     if policy == "idm":
         try:
@@ -52,4 +57,6 @@ def main(policy="idm", steps=250, out="runs/metadrive_drive.gif"):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "idm")
+    pol = sys.argv[1] if len(sys.argv) > 1 else "idm"
+    rm = sys.argv[2] if len(sys.argv) > 2 else None
+    main(policy=pol, road_map=rm)

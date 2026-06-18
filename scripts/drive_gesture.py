@@ -52,11 +52,13 @@ def _draw_hud(frame, fb):
 
 
 def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_gesture.gif",
-                  session="runs/gesture_session.npz", show=None):
+                  session="runs/gesture_session.npz", show=None, road_map=None, traffic_density=0.1):
     import imageio.v2 as imageio
-    from envs.metadrive_env import adapt_obs          # pure (no panda3d at import time)
+    from envs.metadrive_env import adapt_obs, metadrive_config   # pure (no panda3d at import time)
 
     show = (policy == "gesture") if show is None else show
+    if isinstance(road_map, str) and road_map.isdigit():
+        road_map = int(road_map)
 
     feedback = None
     if ckpt:
@@ -68,6 +70,9 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         from config import get_config
         cfg = get_config(env="metadrive", obs_type="state", state_dim=259, action_dim=2,
                          max_episode_steps=300)
+    if road_map is not None:
+        cfg.metadrive_map = road_map
+    cfg.metadrive_traffic_density = traffic_density
 
     # WINDOWS LOAD-ORDER FIX (important): build the action source -- which imports MediaPipe and
     # therefore TensorFlow's native DLLs -- and open the cv2 window BEFORE loading MetaDrive /
@@ -81,7 +86,7 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         cv2.namedWindow("drive (press q to quit)", cv2.WINDOW_NORMAL)
 
     from metadrive.envs import MetaDriveEnv             # panda3d loads here, AFTER TensorFlow
-    env = MetaDriveEnv(dict(use_render=False, horizon=cfg.max_episode_steps))
+    env = MetaDriveEnv({**metadrive_config(cfg), "use_render": False})   # cv2 window shows the view
     obs = adapt_obs(env.reset()[0], "state")
     frames, rec = [], {"obs": [], "action": [], "reward": [], "done": []}
     try:
@@ -117,5 +122,6 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
 
 if __name__ == "__main__":
     pol = sys.argv[1] if len(sys.argv) > 1 else "gesture"
-    ck = sys.argv[2] if len(sys.argv) > 2 else None
-    drive_gesture(policy=pol, ckpt=ck)
+    ck = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] not in ("-", "none") else None
+    rm = sys.argv[3] if len(sys.argv) > 3 else None
+    drive_gesture(policy=pol, ckpt=ck, road_map=rm)

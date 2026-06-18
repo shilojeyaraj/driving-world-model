@@ -20,11 +20,14 @@ from utils import save_checkpoint
 
 
 def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior_steps=400,
-         out="runs/metadrive/ckpt.pt"):
+         out="runs/metadrive/ckpt.pt", road_map=None, traffic_density=0.1):
+    if isinstance(road_map, str) and road_map.isdigit():
+        road_map = int(road_map)
     cfg = get_config(env="metadrive", obs_type="state", state_dim=259, action_dim=2,
                      deter_dim=128, stoch_dim=32, hidden_dim=128, seq_len=10, imagine_horizon=15,
                      gamma=0.99, lambda_=0.95, entropy_coef=1e-3, actor_lr=3e-4, critic_lr=3e-4,
-                     lr=3e-4, batch_size=16, max_episode_steps=200)
+                     lr=3e-4, batch_size=16, max_episode_steps=200,
+                     metadrive_map=road_map, metadrive_traffic_density=traffic_density)
     torch.manual_seed(0); np.random.seed(0)
     env = make_env(cfg)                                  # one sim instance, reused throughout
 
@@ -40,4 +43,4 @@ def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior
 
 
 if __name__ == "__main__":
-    main()
+    main(road_map=sys.argv[1] if len(sys.argv) > 1 else None)

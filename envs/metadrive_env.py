@@ -40,6 +40,22 @@ def adapt_obs(raw, obs_type):
     return np.ascontiguousarray(img, dtype=np.float32)
 
 
+def metadrive_config(cfg):
+    """Build the MetaDrive config dict from our cfg -- the SCENE knobs live here so every entry
+    point (wrapper, drive_gesture, watch/record scripts) picks the same map/traffic. `map` is
+    int N (N random blocks) or a block-letter string (S straight, C curve, X intersection,
+    O roundabout, T t-junction, r/R ramp); traffic_density sets how many other cars."""
+    md = dict(use_render=bool(getattr(cfg, "metadrive_render", False)),
+              horizon=cfg.max_episode_steps,
+              traffic_density=float(getattr(cfg, "metadrive_traffic_density", 0.1)))
+    m = getattr(cfg, "metadrive_map", None)
+    if m is not None:
+        md["map"] = m
+    if cfg.obs_type == "image":
+        md["image_observation"] = True              # VERSION-SPECIFIC; see docs/METADRIVE.md
+    return md
+
+
 class MetaDriveDrivingEnv(DrivingEnv):
     def __init__(self, cfg):
         self.cfg = cfg
@@ -47,13 +63,8 @@ class MetaDriveDrivingEnv(DrivingEnv):
         self.action_dim = cfg.action_dim                # MetaDrive action = [steering, throttle], in [-1,1]
         from metadrive.envs import MetaDriveEnv         # imported here so the dummy env runs without it
 
-        # use_render=True opens MetaDrive's 3-D chase-camera window (the docs look); needs a display.
-        md_cfg = dict(use_render=getattr(cfg, "metadrive_render", False), horizon=cfg.max_episode_steps)
-        if cfg.obs_type == "image":
-            # VERSION-SPECIFIC: enabling a camera + image observation differs across releases
-            # (older: image_observation=True; newer: a `sensors=` RGBCamera spec). See
-            # docs/METADRIVE.md. Image mode also generally needs a GPU/offscreen renderer.
-            md_cfg.update(image_observation=True)
+        # Scene/render/traffic config (use_render=True opens the 3-D window; map sets the road).
+        md_cfg = metadrive_config(cfg)
         try:
             self._env = MetaDriveEnv(config=md_cfg)
         except TypeError:                               # some versions take the dict positionally

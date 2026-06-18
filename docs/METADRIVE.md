@@ -98,6 +98,34 @@ input layer will mismatch and training will error immediately.
 reward (progress, lane-keeping, collision/out-of-road penalties). The world model just learns
 whatever reward the env emits; the reward head + closed-loop metrics carry over unchanged.
 
+## Choosing the scene — map + traffic
+MetaDrive procedurally generates the road from a **block-letter map** plus a **traffic density**
+(`config.py: metadrive_map`, `metadrive_traffic_density`, threaded everywhere via
+`envs/metadrive_env.py:metadrive_config`):
+
+| `metadrive_map` | road |
+|---|---|
+| `int N` | N random blocks (default `3`) |
+| `"SSSS"` | straights → highway feel |
+| `"X"` | intersection |
+| `"O"` | roundabout |
+| `"CCCC"` | curvy road |
+| `"T"` | T-junction |
+| `"r"/"R"` | on/off ramp |
+
+`metadrive_traffic_density`: `0.0` empty … `~0.3` busy. Set them via the script args or config:
+```bash
+python -m scripts.watch_metadrive_3d - X        # PREVIEW an intersection in 3-D (IDM drives)
+python -m scripts.watch_metadrive_3d - SSSS     # preview a highway
+python -m scripts.record_metadrive idm X        # record an intersection (top-down GIF)
+python -m scripts.drive_gesture gesture - SSSS  # HAND-DRIVE a highway
+python -m scripts.run_metadrive X               # train on an intersection
+```
+In code: `get_config(env="metadrive", metadrive_map="X", metadrive_traffic_density=0.3, ...)`.
+**Traffic lights:** they live on intersection (`X`) blocks; enabling/seeing them is MetaDrive-
+version-specific — check the MetaDrive docs for the current traffic-light config, and start from
+`python -m metadrive.examples.drive_in_single_agent_env` to see the default intersections.
+
 ---
 
 ## Running the pipeline on MetaDrive

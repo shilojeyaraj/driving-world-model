@@ -102,6 +102,12 @@ python -m metadrive.examples.drive_in_single_agent_env        # MetaDrive's own 
 python -m scripts.watch_metadrive_3d                          # 3-D window, IDM expert drives
 python -m scripts.watch_metadrive_3d runs/metadrive/ckpt.pt   # 3-D window, OUR trained policy
 ```
+> **Pick the scene/map** (highway, intersection, roundabout...) — the `map` arg / config:
+> ```bash
+> python -m scripts.watch_metadrive_3d - X       # intersection   (S straight, C curve, X intersection,
+> python -m scripts.watch_metadrive_3d - SSSS    # highway         O roundabout, T t-junction, r/R ramp; int N = N random)
+> python -m scripts.run_metadrive X              # train on it ;  in code: get_config(metadrive_map="X", metadrive_traffic_density=0.3)
+> ```
 
 ## 7b. DonkeyCar / DonkeyGym (rendered 3-D camera sim)  — see docs/DONKEYCAR.md
 ```bash

@@ -18,6 +18,10 @@ class Config:
     max_episode_steps: int = 1000
 
     metadrive_render: bool = False   # True -> open MetaDrive's 3-D render window (needs a display)
+    metadrive_map: object = None     # scene: None=default | int N (N random blocks) | str of block
+                                     # letters: S straight, C curve, X intersection, O roundabout,
+                                     # T t-junction, r/R on/off ramp, y merge. e.g. "SSSS"=highway, "X"=intersection
+    metadrive_traffic_density: float = 0.1   # other-vehicle density (0.0 empty ... ~0.3 busy)
 
     # --- donkey (DonkeyGym Unity sim; image mode) -- see docs/DONKEYCAR.md ---
     donkey_level: int = 3        # 0=roads 1=warehouse 2=avc-sparkfun 3=generated-track
