@@ -55,29 +55,35 @@ def _to_img(frame_chw, scale=6):
 
 
 def dream_video(ckpt=None, image_size=32, wm_steps=800, context=5, horizon=20,
-                drive_action=(0.0, 1.0), out_dir="runs/dream", seed=1):
+                drive_action=(0.0, 1.0), out_dir="runs/dream", seed=1, device=None):
     from models.world_model import WorldModel
 
     if ckpt:
         from utils import load_models
         cfg, wm, _, _ = load_models(ckpt)
+        buf = None
     else:
         cfg = get_config(obs_type="image", env="dummy", image_size=image_size,
-                         deter_dim=128, stoch_dim=32, hidden_dim=128,
-                         seq_len=context + horizon + 4, max_episode_steps=300, batch_size=16)
+                         deter_dim=128, stoch_dim=32, hidden_dim=128, seq_len=context + horizon + 4,
+                         max_episode_steps=300, batch_size=16, device=device or "cpu")
         buf = _collect(cfg, 4000, seed=0)
         wm = WorldModel(cfg, cfg.action_dim)
+
+    dev = torch.device(device or cfg.device)                 # device="cuda" on Kaggle's GPU
+    wm.to(dev)
+    if buf is not None:
         opt = torch.optim.Adam(wm.parameters(), lr=3e-3)
         for step in range(wm_steps):
-            batch = {k: torch.as_tensor(v) for k, v in buf.sample(cfg.batch_size).items()}
+            batch = {k: torch.as_tensor(v, device=dev) for k, v in buf.sample(cfg.batch_size).items()}
             loss, m = wm.assemble_loss(batch)
             opt.zero_grad(); loss.backward()
             torch.nn.utils.clip_grad_norm_(wm.parameters(), 100.0); opt.step()
             if step % 100 == 0:
-                print(step, {k: round(float(v), 4) for k, v in m.items()})
+                print(step, {k: round(float(v), 4) for k, v in m.items()}, flush=True)
 
     # Condition on `context` real frames, then DREAM `horizon` steps with the drive action.
     obs, actions = _drive_trajectory(cfg, context, horizon, drive_action, seed)
+    obs, actions = obs.to(dev), actions.to(dev)
     wm.eval()
     with torch.no_grad():
         emb = wm.encoder(obs[:, :context].reshape(context, *obs.shape[2:])).reshape(1, context, -1)

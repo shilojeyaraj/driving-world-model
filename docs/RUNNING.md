@@ -89,6 +89,8 @@ python -m scripts.ablate_dynamics            # trains both, prints a comparison 
 python -m scripts.dream_video                # train an image WM -> runs/dream/dream.gif (+ montage)
 python -m scripts.drive_from_pixels          # policy trained + driving from pixels (toy)
 ```
+> No local GPU? See **docs/KAGGLE.md** — run `dream_video(image_size=64, device="cuda")` on
+> Kaggle's free GPU for a crisp 64×64 dream in minutes.
 
 ## 7. MetaDrive (real sim)  — see docs/METADRIVE.md
 ```bash
