@@ -81,13 +81,15 @@ wm_steps=800, behavior_steps=800)"
 python -m scripts.eval_closed_loop runs/behavior/ckpt.pt
 
 python -m scripts.record_metadrive      # SEE a car drive (rendered top-down) -> runs/metadrive_drive.gif
+python -m scripts.watch_metadrive_3d    # SEE it in 3-D (rendered chase-camera window; needs a display)
 ```
 **Full command list for every feature is in `docs/RUNNING.md`** (env vars needed: none).
 
 ## Runs on your laptop vs needs a GPU
 - **Laptop (CPU), works now:** the whole toy pipeline, dynamics ablation, MetaDrive **state** mode,
-  the **top-down rendered** driving video, the gesture demo (with a webcam), and small-resolution
-  dream video.
+  the **top-down *and* 3-D rendered** driving views (`scripts/record_metadrive` /
+  `scripts/watch_metadrive_3d` — the 3-D window needs a display, integrated GPU is fine), the
+  gesture demo (with a webcam), and small-resolution dream video.
 - **Needs a GPU:** heavy image-mode training (64×64) — use **Kaggle's free GPU** (`docs/KAGGLE.md`)
   — and the photoreal 3-D sims (DonkeyGym Unity / MetaDrive camera), which want a GPU + display.
 
