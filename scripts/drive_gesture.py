@@ -73,7 +73,7 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
     import imageio.v2 as imageio
     from envs.metadrive_env import adapt_obs, metadrive_config   # pure (no panda3d at import time)
 
-    show = (policy == "gesture") if show is None else show
+    show = policy.startswith("gesture") if show is None else show   # any webcam mode -> live window
     if isinstance(road_map, str) and road_map.isdigit():
         road_map = int(road_map)
 
