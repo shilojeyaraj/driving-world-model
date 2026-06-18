@@ -50,6 +50,13 @@ The gesture controller is an **action source** (like `random_policy` / `Actor`),
 - `class GestureController:` `__init__(cfg)`, `get_action() -> np.ndarray`, `calibrate()`,
   `close()`. Lazily imports `cv2` + `mediapipe` (so the module imports without them); extracts
   hand-center-x → `steer_raw` and hand height/openness → `throttle_raw`, delegates to the pure fn.
+- **Discrete-command mode (`cfg.gesture_mode="discrete"`)** — pure, camera-free, unit-tested:
+  `extended_fingers(pts)` (which fingers are up, from landmark geometry) → `classify_gesture(pts,
+  prev_center, *, backward_dy)` → a COMMAND in `{left,right,forward,stop,backward,none}` →
+  `command_to_action(cmd, prev, *, steer_mag, throttle_mag, reverse_mag, steer_sign, smoothing,
+  straighten)`, a steer/throttle state machine that holds one axis while a command updates the
+  other. Mapping: 👉 point left/right = turn, ✊ fist = forward, ✋ open palm = stop, swipe-down
+  = reverse. `GestureController` mirrors the frame and branches on `cfg.gesture_mode`.
 
 ### 4.2 `training/train_reference.py` (mirrors `training/train_behavior.py`)
 `train_reference(cfg, ...) -> (wm, ref_actor, critic)`:
@@ -86,6 +93,14 @@ gesture_smoothing: float = 0.7
 gesture_deadzone: float = 0.1
 forecast_horizon: int = 15
 risk_threshold: float = 0.5
+# discrete-command mode:
+gesture_mode: str = "continuous"   # "continuous" | "discrete"
+gesture_mirror: bool = True        # mirror the webcam frame so steering feels natural
+gesture_steer_mag: float = 0.6     # steer for point-left/right
+gesture_throttle_mag: float = 0.5  # throttle for closed-fist "go"
+gesture_reverse_mag: float = 0.4   # reverse throttle for the down-swipe
+gesture_steer_sign: float = 1.0    # set -1.0 if left/right come out reversed
+gesture_backward_dy: float = 0.06  # downward hand motion (per frame) -> reverse
 ```
 
 ## 6. Checkpointing
@@ -123,3 +138,29 @@ Reuse `utils.save_checkpoint`/`load_models` with the existing
 The reference Critic via **policy-evaluation of IDM** reuses `lambda_returns` directly. The
 symlog/return-norm stabilizers are NOT reintroduced (reverted, `experiments/012`); the reference
 avoids corner-collapse by imitating IDM rather than RL-from-scratch.
+
+## 11. Running it (scripts)
+All from the repo root; gesture modes need a webcam + `pip install mediapipe opencv-python`.
+The pretrained MediaPipe hand model auto-downloads once to `runs/hand_landmarker.task`.
+```bash
+# 0) train the reference stack (the "expert" the feedback compares to) -- slow, needs MetaDrive:
+python -m training.train_reference                                       # -> runs/reference/ckpt.pt
+
+# 1) DRIVE by hand + live feedback HUD:
+python -m scripts.drive_gesture gesture          runs/reference/ckpt.pt  # continuous: hand x=steer, height=throttle
+python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt  # commands: point/fist/palm/swipe
+python -m scripts.drive_gesture gesture-discrete - SSSS                  # discrete commands on a highway, no feedback
+
+# 2) headless smoke (NO webcam): full render + HUD + report on a scripted policy:
+python -m scripts.drive_gesture random runs/reference/ckpt.pt
+
+# 3) turn a recorded session into a "driving habits" report:
+python -m scripts.feedback_report                                        # -> runs/feedback_report.json
+
+# 4) train the world model on YOUR recorded gesture session (.npz from step 1/2):
+python -m scripts.train_on_gesture runs/gesture_session.npz              # -> runs/gesture_reference/ckpt.pt
+```
+**Discrete cheatsheet:** 👉 point left/right = turn · ✊ closed fist = go forward · ✋ open palm =
+stop · swipe hand down = reverse. If left/right feel swapped on your camera, set
+`get_config(gesture_steer_sign=-1.0)`; tune `gesture_steer_mag` / `gesture_throttle_mag` /
+`gesture_backward_dy` to taste. Outputs (GIF, `.npz` session, JSON report) land under `runs/`.
