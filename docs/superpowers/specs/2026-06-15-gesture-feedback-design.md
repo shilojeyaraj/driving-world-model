@@ -84,8 +84,10 @@ The gesture controller is an **action source** (like `random_policy` / `Actor`),
   events (`late_brake`, `oversteer_right`, `near_off_road`, `low_value`), aggregate, stats.
 
 ### 4.4 Scripts (`sys.path` header, `main()`, `__main__`)
-- `scripts/drive_gesture.py`: live loop GestureController → MetaDrive.step → topdown render + HUD
-  + `DrivingFeedback.step`; saves a session GIF (reuse `scripts/record_metadrive.py:_frame`) + buffer.
+- `scripts/drive_gesture.py`: live loop GestureController → MetaDrive.step → render + HUD +
+  `DrivingFeedback.step`; saves a session buffer. Defaults to MetaDrive's **rendered 3-D window**
+  for gesture modes (HUD via `env.render(text=...)`); a `2d` flag falls back to a headless top-down
+  GIF. Action source is pluggable (`gesture` / `gesture-discrete` / `random` / `forward`).
 - `scripts/feedback_report.py`: load recorded session + `load_models("runs/reference/ckpt.pt")` →
   `DrivingFeedback` offline → report + flagged clips.
 
@@ -152,8 +154,8 @@ python -m training.train_reference                                       # -> ru
 
 # 1) DRIVE by hand + live feedback HUD:
 python -m scripts.drive_gesture gesture          runs/reference/ckpt.pt  # continuous: hand x=steer, height=throttle
-python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt  # commands: point/fist/palm/swipe
-python -m scripts.drive_gesture gesture-discrete - SSSS                  # discrete commands on a highway, no feedback
+python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt  # position steers + pose throttles (fist/palm/prayer)
+python -m scripts.drive_gesture gesture-discrete - SSSS                  # discrete scheme on a highway, no feedback
 
 # 2) headless smoke (NO webcam): full render + HUD + report on a scripted policy:
 python -m scripts.drive_gesture random runs/reference/ckpt.pt

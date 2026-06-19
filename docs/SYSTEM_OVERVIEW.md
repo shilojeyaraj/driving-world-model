@@ -129,7 +129,17 @@ These show judgment, not just knowledge:
   the same RSSM/ELBO/actor-critic are untouched (obs-type-agnostic core). It learns to **dream
   video** — roll the prior under chosen actions and decode frames (`scripts/dream_video.py`).
 - **Real sim.** MetaDrive behind the same env contract (`envs/metadrive_env.py`); the world model
-  trains on real lidar+ego state, and the sim renders to a watchable top-down video.
+  trains on real lidar+ego state, and the sim renders both a top-down video and a **3-D window**
+  (`scripts/watch_metadrive_3d.py`), with a pickable **scene** (highway / intersection / roundabout
+  via `metadrive_map` + traffic density). DonkeyGym (Unity camera sim) plugs into the same contract.
+- **Gesture control + driving-feedback engine.** The world model isn't just for training a policy —
+  it's a *predictive critic*. A **webcam hand** (pretrained MediaPipe HandLandmarker) is just
+  another action source: hand position steers, fist/palm = throttle, two hands together = reverse,
+  so you drive MetaDrive's 3-D view by hand. The same model then critiques that driving live, on
+  three signals: **safety** (imagine the continue-head forward — crash forecast), **style**
+  (deviation + log-prob *surprise* vs a behavior-cloned IDM expert), and **value** (the critic).
+  It's the clearest demo of *why* a differentiable world model is useful beyond RL — you can
+  forecast and judge any controller, including a human. `control/gesture.py`, `eval/feedback.py`.
 
 ## 7. Results & honest limitations
 
@@ -163,3 +173,8 @@ necessary.
   point is the controlled ablation harness; SSMs would matter on long-horizon/partial-obs tasks.
 - **"What broke and how did you find it?"** The action-timing and sample-vs-mean stories in §5 —
   found by generalization tests and instrumentation, not guessing.
+- **"What else is a world model good for besides RL?"** Forecasting and *critique*. I drive
+  MetaDrive's 3-D view by hand (webcam) and have the same model judge it live: imagine the
+  continue-head forward for a crash/safety forecast, compare to a behavior-cloned expert for style
+  (incl. log-prob surprise), and read the critic for value. The differentiable simulator evaluates
+  any controller — including a human — not just a trained policy.

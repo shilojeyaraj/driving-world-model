@@ -35,13 +35,20 @@ state mode; pixels/real-sims scale up to a GPU.
   `scripts/dream_video.py`, `experiments/007`.
 - **Real simulators** behind one `envs/base.py` contract:
   - **MetaDrive** (`env="metadrive"`) — live-verified in state mode (real 259-dim lidar+ego);
-    top-down video via `scripts/record_metadrive.py`. `docs/METADRIVE.md`.
-  - **DonkeyCar / DonkeyGym** (`env="donkey"`) — Unity 3-D camera sim, image obs. `docs/DONKEYCAR.md`.
-- **Gesture control + driving feedback.** Drive with your **hand** (MediaPipe HandLandmarker) and
-  get live critique from the world model — **safety** (continue-head forecast), **style** (deviation
-  + surprise vs a behavior-cloned IDM expert), **value** (critic) — as a HUD + a session report.
-  `control/gesture.py`, `eval/feedback.py`, `scripts/drive_gesture.py`,
-  `docs/superpowers/specs/2026-06-15-gesture-feedback-design.md`.
+    **top-down *and* rendered 3-D** views, with a pickable **scene** (highway / intersection /
+    roundabout via `metadrive_map` + traffic density). `scripts/record_metadrive.py`,
+    `scripts/watch_metadrive_3d.py`, `docs/METADRIVE.md`.
+  - **DonkeyCar / DonkeyGym** (`env="donkey"`) — Unity 3-D camera sim, image obs (wrapper built +
+    adapter-tested; a live run needs the Unity binary, ideally py3.11). `docs/DONKEYCAR.md`.
+- **Gesture control + driving feedback.** Drive MetaDrive **by hand** in the rendered 3-D window
+  (MediaPipe HandLandmarker, pretrained — no training). The default *discrete* scheme puts the two
+  controls on independent axes — **hand position steers**, **✊ fist = go**, **✋ open palm = stop**,
+  **🙏 two hands together = reverse** — so you can go forward and turn at once. Live world-model
+  critique overlays as a HUD — **safety** (continue-head forecast), **style** (deviation + surprise
+  vs a behavior-cloned IDM expert), **value** (critic) — plus a session report; and you can
+  **train a "your-style" reference** on a recorded session so it critiques you against your *own*
+  driving. `control/gesture.py`, `eval/feedback.py`, `scripts/drive_gesture.py`,
+  `scripts/train_on_gesture.py`, `docs/superpowers/specs/2026-06-15-gesture-feedback-design.md`.
 - **Full test suite** (fast unit/contract + slow training gates), built test-first throughout.
 
 ## Results & honest limitations
@@ -101,7 +108,7 @@ python -m scripts.watch_metadrive_3d    # SEE it in 3-D (rendered chase-camera w
 | `docs/RUNNING.md` | every run/test command (+ env vars) |
 | `docs/METADRIVE.md` · `docs/DONKEYCAR.md` · `docs/KAGGLE.md` | real sims + GPU |
 | `docs/superpowers/specs/` | design specs (v1 world model; gesture-feedback) |
-| `experiments/001–017` | the build log (one entry per milestone) · `CONCEPTS.md` (the ML map) |
+| `experiments/001–018` | the build log (one entry per milestone) · `CONCEPTS.md` (the ML map) |
 
 ## How it was built
 From-scratch, test-first, one milestone at a time. Each component carries a `Concept:` / `Question:`
