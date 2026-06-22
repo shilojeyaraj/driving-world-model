@@ -53,7 +53,47 @@ def metadrive_config(cfg):
         md["map"] = m
     if cfg.obs_type == "image":
         md["image_observation"] = True              # VERSION-SPECIFIC; see docs/METADRIVE.md
+    if getattr(cfg, "metadrive_endless", False):    # let a human drive through mistakes (no reset)
+        md.update(out_of_road_done=False, on_continuous_line_done=False,
+                  crash_vehicle_done=False, crash_object_done=False, crash_human_done=False)
+    if md["use_render"]:                             # 3-D window: cut what a weak GPU has to draw
+        md["window_size"] = tuple(getattr(cfg, "metadrive_window_size", (800, 600)))  # fewer pixels
+        if getattr(cfg, "metadrive_low_graphics", True):
+            md.update(show_skybox=False, show_logo=False)   # cheaper scene. NOTE: do NOT set
+            # shadow_range=0 -- MetaDrive's PSSM asserts distance>0 and crashes. Shadows are turned
+            # off at runtime instead (disable_shadows below), after the engine/pssm exists.
+        if getattr(cfg, "metadrive_manual_control", False):
+            md.update(manual_control=True, controller="keyboard")   # drive with WASD in the window
     return md
+
+
+def applied_action(env, proposed, manual):
+    """The action the vehicle ACTUALLY executed this step. In keyboard/manual mode MetaDrive
+    overrides our env-input action with the controller's (WASD), so the real action lives on the
+    agent (`last_current_action[-1]`) -- recording that is what makes the session the human's own
+    driving. Non-manual modes (gesture/random) just executed `proposed`, so we pass it through.
+    Defensive: any malformed env falls back to `proposed` rather than raising."""
+    if not manual:
+        return np.asarray(proposed, dtype=np.float32)
+    try:
+        return np.asarray(env.agent.last_current_action[-1], dtype=np.float32)
+    except Exception:
+        return np.asarray(proposed, dtype=np.float32)
+
+
+def disable_shadows(env):
+    """Best-effort: switch off PSSM shadow sampling on a live MetaDrive env (a real GPU cost on a
+    weak/integrated card). Must run AFTER reset() created the engine. MetaDrive has no config flag
+    for this and exposes only pssm.toggle_shadows_mode(), so we call it defensively -- a no-op if
+    the internals differ across versions, never a crash."""
+    try:
+        pssm = getattr(getattr(env, "engine", None), "pssm", None)
+        if pssm is not None and getattr(pssm, "use_pssm", False):
+            pssm.toggle_shadows_mode()              # use_pssm True -> False (skip shadow lookup)
+            return True
+    except Exception:
+        pass
+    return False
 
 
 class MetaDriveDrivingEnv(DrivingEnv):

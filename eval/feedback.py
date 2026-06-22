@@ -59,6 +59,14 @@ def state_value(critic, feat):
         return float(critic(feat).reshape(-1)[0])
 
 
+def should_forecast(step_idx, every):
+    """Whether to recompute the EXPENSIVE safety forecast (the 15-step imagine) this step. The live
+    HUD reuses the last forecast in between, which lets a weak laptop run the cheap per-step signals
+    (state-carry, style, value) at full fps while the costly imagine fires only every `every` frames.
+    `every<=1` -> every step (no throttling)."""
+    return every <= 1 or step_idx % every == 0
+
+
 class DrivingFeedback:
     """Run the 3 signals online while you drive. Carries the RSSM posterior across steps exactly
     like eval/closed_loop.py: feed the PREVIOUS action + the CURRENT obs to obs_step, act on
@@ -76,15 +84,21 @@ class DrivingFeedback:
     def reset(self):
         self.state = self.wm.rssm.initial_state(1, self.device)
         self.prev_action = torch.zeros(1, self.cfg.action_dim, device=self.device)
+        self._last_A = {"survival": 1.0, "pred_return": 0.0, "risk": False}            # forecast cache
         self.traces = {k: [] for k in
                        ("survival", "pred_return", "risk", "d_steer", "d_throttle", "surprise", "value")}
 
-    def step(self, obs, action):
+    def step(self, obs, action, forecast=True):
+        """`forecast=False` skips the expensive safety imagine and reuses the last forecast (for the
+        live HUD on a weak laptop -- see should_forecast); the state-carry and the cheap style/value
+        signals still run every step, so the recurrent state and the trace rows stay correct."""
         with torch.no_grad():
             e = self.wm.encoder(torch.as_tensor(obs, device=self.device).float().unsqueeze(0))
             self.state, _, _ = self.wm.rssm.obs_step(self.state, self.prev_action, e)
             feat = torch.cat(self.state, dim=-1)                                      # [h; z]
-            A = forecast_safety(self.wm, self.state, action, self.cfg.forecast_horizon)
+            if forecast:
+                self._last_A = forecast_safety(self.wm, self.state, action, self.cfg.forecast_horizon)
+            A = self._last_A
             B = style_deviation(self.ref, feat, action)
             C = state_value(self.critic, feat)
             self.prev_action = torch.as_tensor(np.asarray(action, np.float32), device=self.device).unsqueeze(0)

@@ -175,6 +175,11 @@ class GestureController:
         self._cap = cv2.VideoCapture(cfg.webcam_id)
         if not self._cap.isOpened():
             raise RuntimeError(f"could not open webcam {cfg.webcam_id}")
+        # Cap capture resolution -> fewer pixels for MediaPipe to process each frame (weak-laptop win).
+        w, h = getattr(cfg, "gesture_cap_width", 0), getattr(cfg, "gesture_cap_height", 0)
+        if w and h:
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
 
         import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions

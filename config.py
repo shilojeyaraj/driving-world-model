@@ -22,6 +22,12 @@ class Config:
                                      # letters: S straight, C curve, X intersection, O roundabout,
                                      # T t-junction, r/R on/off ramp, y merge. e.g. "SSSS"=highway, "X"=intersection
     metadrive_traffic_density: float = 0.1   # other-vehicle density (0.0 empty ... ~0.3 busy)
+    metadrive_window_size: tuple = (800, 600) # 3-D render resolution; smaller = far smoother on a
+                                              # weak/integrated GPU (MetaDrive's own default is 1200x900)
+    metadrive_low_graphics: bool = True      # when rendering, drop shadows/skybox/logo for FPS
+    metadrive_manual_control: bool = False   # drive the 3-D window yourself with WASD (no webcam)
+    metadrive_endless: bool = False          # don't reset on off-road/line/crash -- a human can keep
+                                             # driving through mistakes (longer session, no freeze-resets)
 
     # --- donkey (DonkeyGym Unity sim; image mode) -- see docs/DONKEYCAR.md ---
     donkey_level: int = 3        # 0=roads 1=warehouse 2=avc-sparkfun 3=generated-track
@@ -57,6 +63,11 @@ class Config:
     gesture_deadzone: float = 0.1     # zero out |signal| below this
     forecast_horizon: int = 15        # steps the safety metric imagines your action forward
     risk_threshold: float = 0.5       # predicted survival below this -> safety alert
+    # --- performance (weak laptop / no GPU): cut what the live drive loop asks for ---
+    gesture_feedback_every: int = 3   # recompute the EXPENSIVE safety forecast every k live frames
+                                      # (HUD reuses it between); 1 = every frame. Raise on a slow CPU.
+    gesture_cap_width: int = 640      # cap webcam capture width (fewer pixels for MediaPipe); 0 = default
+    gesture_cap_height: int = 480     # cap webcam capture height; 0 = camera default
     # discrete mode: hand x-position=steer, fist=go forward, open palm=coast/stop,
     # two hands together (prayer)=reverse -- steer + throttle combine (forward + turn at once)
     gesture_mode: str = "continuous"  # "continuous" (hand position) | "discrete" (position+pose)

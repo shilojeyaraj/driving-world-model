@@ -134,13 +134,20 @@ First Unity launch may hit SmartScreen ("More info -> Run anyway"). If the smoke
 ```bash
 # 1) train the reference (the "expert" the feedback compares against) -- slow, needs MetaDrive:
 python -m training.train_reference                                  # -> runs/reference/ckpt.pt
-# 2) drive by hand in MetaDrive's rendered 3-D window (needs a webcam + mediapipe + a display):
+# 2a) EASIEST: drive the 3-D window yourself with WASD (no webcam/MediaPipe -- lightest on a laptop).
+#     Click the window first so it has focus. w=gas s=reverse a=left d=right.
+python -m scripts.drive_gesture keyboard runs/reference/ckpt.pt     # WASD + live feedback HUD
+# 2b) drive by hand in MetaDrive's rendered 3-D window (needs a webcam + mediapipe + a display):
 python -m scripts.drive_gesture gesture runs/reference/ckpt.pt      # continuous: hand position
 python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt   # discrete commands (3-D by default)
 python -m scripts.drive_gesture gesture-discrete - SSSS            # 3-D highway, no feedback
 python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt 2d  # force the old top-down GIF instead
 # 3) turn a recorded session into a habits report:
 python -m scripts.feedback_report                                  # -> runs/feedback_report.json
+# 4) TRAIN the model on YOUR driving (world model + a "your-style" reference cloned from the session):
+python -m scripts.train_on_gesture runs/gesture_session.npz        # -> runs/gesture_reference/ckpt.pt
+#    then re-drive critiqued against your OWN style instead of the IDM expert:
+python -m scripts.drive_gesture keyboard runs/gesture_reference/ckpt.pt
 
 # headless smoke (no webcam): drive with a random/forward policy but full render + HUD + report:
 python -m scripts.drive_gesture random runs/reference/ckpt.pt
@@ -158,6 +165,32 @@ python -m scripts.drive_gesture random runs/reference/ckpt.pt
 >   MediaPipe hand model, now tracking up to two hands (no training). If left/right feel swapped,
 >   set `get_config(gesture_steer_sign=-1.0)`; tune `gesture_steer_mag` / `gesture_throttle_mag` /
 >   `gesture_prayer_thresh` to taste.
+
+### Running smoothly on a weak laptop (no GPU / integrated graphics)
+The live loop juggles three heavy jobs on one chip — MetaDrive's 3-D render, MediaPipe hand
+tracking, and the world-model feedback. There's no software you can *download* to add power
+(and CUDA-PyTorch needs an NVIDIA GPU); the levers are **un-throttling the machine** and
+**asking the program for less**:
+- **OS (free, biggest win):** set Windows to **Best performance** and **plug in** — U-series CPUs
+  throttle hard on Balanced/battery. Keep it cool (hard surface, clean vents) and close other apps.
+  ```powershell
+  powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c   # high performance (revert: 381b4222-...)
+  ```
+- **Throttle the feedback forecast** — the priciest per-step cost (a 15-step imagine) now runs only
+  every `cfg.gesture_feedback_every` frames (default **3**); the HUD reuses it in between, and the
+  cheap state/style/value signals still update every frame. Raise it (e.g. `5`) for more headroom.
+- **Smaller webcam capture** — `cfg.gesture_cap_width` / `gesture_cap_height` (default 640×480) cap
+  what MediaPipe processes each frame; drop to 480×360 if still choppy.
+- **Lighter 3-D render (biggest GPU win)** — the rendered window is the single heaviest item:
+  - **`cfg.metadrive_window_size`** (default **800×600**, down from MetaDrive's 1200×900) — render
+    resolution is the #1 cost on an integrated GPU; drop to `(640, 480)` if still choppy.
+  - **`cfg.metadrive_low_graphics`** (default **on**) — disables real-time shadows + skybox + logo
+    when rendering (shadows are brutal on weak GPUs); set `False` for the pretty version.
+  - **`cfg.metadrive_traffic_density`** — fewer cars = fewer models to draw + simulate (`0.05` is light).
+  - Pick a **simpler scene** to draw less geometry, e.g. `... gesture-discrete <ckpt> SS` (short straight).
+  - Or skip 3-D entirely with the `2d` flag (top-down) — much cheaper.
+  - To find your bottleneck, run the lightest combo first: `gesture-discrete - 2d`
+    (no checkpoint = no feedback, 2-D = light render).
 
 ## 9. Where outputs go
 Everything writes under `runs/` (checkpoints `*.pt`, GIFs, `*.npz` sessions, JSON reports) — all

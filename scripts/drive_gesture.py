@@ -1,18 +1,20 @@
 """Drive MetaDrive and (optionally) overlay live driving feedback (GF2 + GF5).
 
 Action source is pluggable so the whole pipeline is verifiable WITHOUT a camera:
+  policy="keyboard"          -> drive the 3-D window yourself with WASD (no webcam; MetaDrive
+                                manual_control). w=gas, s=reverse/brake, a=left, d=right.
   policy="gesture"           -> hand POSITION drives (continuous): x=steer, height=throttle
-  policy="gesture-discrete"  -> hand COMMANDS: point left/right=turn, fist=go, palm=stop, swipe-down=reverse
+  policy="gesture-discrete"  -> hand COMMANDS: position steers, fist=go, palm=stop, prayer=reverse
   policy="random" / "forward"  -> headless smoke of the render + feedback + HUD + recording
 
 If a reference checkpoint is given (runs/reference/ckpt.pt from train_reference), the 3-signal
 DrivingFeedback runs live and a HUD is drawn on the top-down view. The session (obs/action/...)
 is saved so scripts/feedback_report.py can analyze it offline.
 
-Usage:  python -m scripts.drive_gesture                                  # continuous gesture, no feedback
-        python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt  # point/fist/palm + HUD
+Usage:  python -m scripts.drive_gesture keyboard runs/reference/ckpt.pt   # WASD drive + live HUD
+        python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt  # hand: position/fist/palm
         python -m scripts.drive_gesture gesture runs/reference/ckpt.pt   # continuous + live feedback HUD
-        python -m scripts.drive_gesture gesture-discrete - SSSS          # discrete commands on a highway
+        python -m scripts.drive_gesture keyboard - SSSS                  # WASD on a highway, no feedback
         python -m scripts.drive_gesture random  runs/reference/ckpt.pt   # headless smoke
 """
 import os, sys
@@ -24,6 +26,11 @@ import numpy as np
 def _action_source(policy, cfg):
     """Return (get_action(obs)->np.ndarray, close(), label()->str). Gesture uses the webcam;
     others are headless. label() reports the discrete command (for the HUD) or ""."""
+    if policy == "keyboard":
+        # MetaDrive's manual_control supplies the action from WASD in the 3-D window; our source is
+        # a no-op placeholder (the real action is read back from the env after step). No webcam.
+        cfg.metadrive_manual_control = True
+        return (lambda obs: np.zeros(cfg.action_dim, np.float32)), (lambda: None), (lambda: "WASD")
     if policy in ("gesture", "gesture-discrete"):
         from control.gesture import GestureController
         if policy == "gesture-discrete":
@@ -34,6 +41,15 @@ def _action_source(policy, cfg):
     if policy == "forward":
         return (lambda obs: np.array([0.0, 0.4], np.float32)), (lambda: None), (lambda: "")
     return (lambda obs: np.random.uniform(-1, 1, cfg.action_dim).astype(np.float32)), (lambda: None), (lambda: "")
+
+
+def _termination_reason(info):
+    """Human-readable cause of an episode reset, read from MetaDrive's info dict (for live logging:
+    'why did the car reset?'). Checks the specific causes first, falls back to a generic 'done'."""
+    for key in ("crash_vehicle", "crash_object", "crash_human", "out_of_road", "arrive_dest", "max_step"):
+        if info.get(key):
+            return key
+    return "done"
 
 
 def _resize(frame, size=420):
@@ -84,12 +100,14 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
                   session="runs/gesture_session.npz", show=None, road_map=None, traffic_density=0.1,
                   render_3d=None):
     import imageio.v2 as imageio
-    from envs.metadrive_env import adapt_obs, metadrive_config   # pure (no panda3d at import time)
+    from envs.metadrive_env import adapt_obs, metadrive_config, disable_shadows, applied_action  # pure
 
     # render_3d -> MetaDrive's rendered 3-D window (the "real" view); else top-down cv2/GIF (headless-ok).
     # Default: live gesture modes -> 3-D window; scripted policies (random/forward) stay headless.
     if render_3d is None:
-        render_3d = policy.startswith("gesture")
+        render_3d = policy.startswith("gesture") or policy == "keyboard"
+    if policy == "keyboard":
+        render_3d = True                 # keyboard input is captured by the 3-D window; force it on
     if show is None:
         show = policy.startswith("gesture") and not render_3d   # cv2 top-down only when NOT 3-D
     if isinstance(road_map, str) and road_map.isdigit():
@@ -98,7 +116,7 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
     feedback = None
     if ckpt:
         from utils import load_models                  # torch only -- no native-DLL clash
-        from eval.feedback import DrivingFeedback
+        from eval.feedback import DrivingFeedback, should_forecast
         cfg, wm, ref_actor, critic = load_models(ckpt)
         feedback = DrivingFeedback(wm, ref_actor, critic, cfg)
     else:
@@ -109,6 +127,9 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         cfg.metadrive_map = road_map
     cfg.metadrive_traffic_density = traffic_density
     cfg.metadrive_render = bool(render_3d)               # -> use_render in metadrive_config
+    # Human drivers: don't reset on every off-road/crash (the "freeze + back to start"). Lets you
+    # practice continuously and record a long session; scripted policies keep normal terminations.
+    cfg.metadrive_endless = policy.startswith("gesture") or policy == "keyboard"
 
     # WINDOWS LOAD-ORDER FIX (important): build the action source -- which imports MediaPipe and
     # therefore TensorFlow's native DLLs -- and open the cv2 window BEFORE loading MetaDrive /
@@ -127,12 +148,21 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         md["use_render"] = False                        # top-down cv2/GIF path
     env = MetaDriveEnv(md)
     obs = adapt_obs(env.reset()[0], "state")
+    if render_3d and getattr(cfg, "metadrive_low_graphics", True):
+        disable_shadows(env)                            # GPU win on weak cards; no-op if unavailable
+    manual = (policy == "keyboard")
     frames, rec = [], {"obs": [], "action": [], "reward": [], "done": []}
     try:
-        for _ in range(steps):
-            action = np.asarray(get_action(obs), dtype=np.float32)
-            fb = feedback.step(obs, action) if feedback else None
-            raw, r, terminated, truncated, _ = env.step(action)
+        for i in range(steps):
+            proposed = np.asarray(get_action(obs), dtype=np.float32)
+            raw, r, terminated, truncated, info = env.step(proposed)
+            # In keyboard mode MetaDrive overrides `proposed` with the WASD action; record/critique
+            # what the car ACTUALLY did so the session is your real driving. (Else action==proposed.)
+            action = applied_action(env, proposed, manual)
+            # Throttle the expensive safety forecast on a weak laptop (HUD reuses it between).
+            fb = feedback.step(obs, action,
+                               forecast=should_forecast(i, getattr(cfg, "gesture_feedback_every", 1))
+                               ) if feedback else None
             done = bool(terminated or truncated)
             for k, v in zip(rec, (obs, action, float(r), done)):
                 rec[k].append(v)
@@ -150,6 +180,9 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
                     cv2.imshow("drive (press q to quit)", frame[:, :, ::-1])   # RGB -> BGR for cv2
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         break
+            if done:                                          # live log: WHY the car reset
+                print(f"[step {i}] reset -- {_termination_reason(info)} "
+                      f"(reward {r:+.1f}, route {info.get('route_completion', 0.0):.0%})", flush=True)
             obs = adapt_obs(env.reset()[0], "state") if done else adapt_obs(raw, "state")
     finally:
         close_src()
