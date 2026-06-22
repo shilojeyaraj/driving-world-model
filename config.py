@@ -26,8 +26,8 @@ class Config:
                                               # weak/integrated GPU (MetaDrive's own default is 1200x900)
     metadrive_low_graphics: bool = True      # when rendering, drop shadows/skybox/logo for FPS
     metadrive_manual_control: bool = False   # drive the 3-D window yourself with WASD (no webcam)
-    metadrive_endless: bool = False          # don't reset on off-road/line/crash -- a human can keep
-                                             # driving through mistakes (longer session, no freeze-resets)
+    metadrive_endless: bool = False          # NEVER reset: off-road/line/crash terminations off AND
+                                             # horizon unbounded -- a human drives continuously, no resets
 
     # --- donkey (DonkeyGym Unity sim; image mode) -- see docs/DONKEYCAR.md ---
     donkey_level: int = 3        # 0=roads 1=warehouse 2=avc-sparkfun 3=generated-track

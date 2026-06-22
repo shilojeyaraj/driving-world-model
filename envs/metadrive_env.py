@@ -55,7 +55,8 @@ def metadrive_config(cfg):
         md["image_observation"] = True              # VERSION-SPECIFIC; see docs/METADRIVE.md
     if getattr(cfg, "metadrive_endless", False):    # let a human drive through mistakes (no reset)
         md.update(out_of_road_done=False, on_continuous_line_done=False,
-                  crash_vehicle_done=False, crash_object_done=False, crash_human_done=False)
+                  crash_vehicle_done=False, crash_object_done=False, crash_human_done=False,
+                  horizon=1_000_000_000)            # and never truncate at max_step -> no reset at all
     if md["use_render"]:                             # 3-D window: cut what a weak GPU has to draw
         md["window_size"] = tuple(getattr(cfg, "metadrive_window_size", (800, 600)))  # fewer pixels
         if getattr(cfg, "metadrive_low_graphics", True):

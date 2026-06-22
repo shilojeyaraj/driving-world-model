@@ -88,13 +88,17 @@ def test_metadrive_config_endless_disables_early_termination():
     assert md["out_of_road_done"] is False
     assert md["on_continuous_line_done"] is False
     assert md["crash_vehicle_done"] is False
+    # ...and never truncate at the horizon either, or the car would still reset mid-drive:
+    assert md["horizon"] >= 1_000_000
 
 
 def test_metadrive_config_default_keeps_metadrive_terminations():
-    """Default must NOT override MetaDrive's own termination defaults (so training/IDM behave normally)."""
+    """Default must NOT override MetaDrive's own termination defaults (so training/IDM behave normally),
+    and the horizon stays at max_episode_steps."""
     cfg = get_config(env="metadrive", max_episode_steps=50)
     md = metadrive_config(cfg)
     assert "out_of_road_done" not in md and "crash_vehicle_done" not in md
+    assert md["horizon"] == 50
 
 
 def test_metadrive_config_manual_control_enables_keyboard_when_rendering():

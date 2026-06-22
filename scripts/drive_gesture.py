@@ -96,7 +96,7 @@ def _hud_text(fb, cmd):
     return text
 
 
-def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_gesture.gif",
+def drive_gesture(policy="gesture", ckpt=None, steps=None, out_gif="runs/drive_gesture.gif",
                   session="runs/gesture_session.npz", show=None, road_map=None, traffic_density=0.1,
                   render_3d=None):
     import imageio.v2 as imageio
@@ -112,6 +112,8 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
         show = policy.startswith("gesture") and not render_3d   # cv2 top-down only when NOT 3-D
     if isinstance(road_map, str) and road_map.isdigit():
         road_map = int(road_map)
+    if steps is None:                # keyboard = drive until you stop (Ctrl+C); else a fixed-length clip
+        steps = 100_000 if policy == "keyboard" else 400
 
     feedback = None
     if ckpt:
@@ -151,7 +153,11 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
     if render_3d and getattr(cfg, "metadrive_low_graphics", True):
         disable_shadows(env)                            # GPU win on weak cards; no-op if unavailable
     manual = (policy == "keyboard")
+    if manual:
+        print("WASD drive: click the MetaDrive window to focus it -- w=gas s=reverse a=left d=right. "
+              "Endless (no resets); press Ctrl+C in this terminal to stop & save your session.", flush=True)
     frames, rec = [], {"obs": [], "action": [], "reward": [], "done": []}
+    i = 0
     try:
         for i in range(steps):
             proposed = np.asarray(get_action(obs), dtype=np.float32)
@@ -184,12 +190,17 @@ def drive_gesture(policy="gesture", ckpt=None, steps=400, out_gif="runs/drive_ge
                 print(f"[step {i}] reset -- {_termination_reason(info)} "
                       f"(reward {r:+.1f}, route {info.get('route_completion', 0.0):.0%})", flush=True)
             obs = adapt_obs(env.reset()[0], "state") if done else adapt_obs(raw, "state")
+    except KeyboardInterrupt:
+        print(f"\nstopped after {i + 1} steps (Ctrl+C) -- saving session", flush=True)
     finally:
         close_src()
         env.close()
         if show:
             cv2.destroyAllWindows()
 
+    if not rec["obs"]:                                   # e.g. Ctrl+C before the first step
+        print("no steps recorded -- nothing to save", flush=True)
+        return
     if frames:                                           # only the top-down path records frames
         os.makedirs(os.path.dirname(out_gif) or ".", exist_ok=True)
         imageio.mimsave(out_gif, frames, duration=0.06, loop=0)

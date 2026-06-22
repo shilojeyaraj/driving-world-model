@@ -135,8 +135,9 @@ First Unity launch may hit SmartScreen ("More info -> Run anyway"). If the smoke
 # 1) train the reference (the "expert" the feedback compares against) -- slow, needs MetaDrive:
 python -m training.train_reference                                  # -> runs/reference/ckpt.pt
 # 2a) EASIEST: drive the 3-D window yourself with WASD (no webcam/MediaPipe -- lightest on a laptop).
-#     Click the window first so it has focus. w=gas s=reverse a=left d=right.
-python -m scripts.drive_gesture keyboard runs/reference/ckpt.pt     # WASD + live feedback HUD
+#     Click the window to focus it; w=gas s=reverse a=left d=right. ENDLESS -- it never resets you
+#     (off-road/crash/horizon all disabled); press Ctrl+C in the terminal to stop & save the session.
+python -m scripts.drive_gesture keyboard runs/reference/ckpt.pt     # WASD + live feedback HUD, endless
 # 2b) drive by hand in MetaDrive's rendered 3-D window (needs a webcam + mediapipe + a display):
 python -m scripts.drive_gesture gesture runs/reference/ckpt.pt      # continuous: hand position
 python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt   # discrete commands (3-D by default)
