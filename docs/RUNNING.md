@@ -192,6 +192,31 @@ tracking, and the world-model feedback. There's no software you can *download* t
   - To find your bottleneck, run the lightest combo first: `gesture-discrete - 2d`
     (no checkpoint = no feedback, 2-D = light render).
 
+## 8b. Evaluate a trained policy — is it actually usable?
+Two axes (the world-model way: *prediction* vs *control*). Works on any actor checkpoint —
+`runs/reference/ckpt.pt` (IDM-cloned), `runs/gesture_reference/ckpt.pt` (your-style), or an
+RL-trained `runs/metadrive/ckpt.pt`.
+```bash
+# WATCH it drive (qualitative) -- 3-D window, the trained actor at the wheel (needs a display):
+python -m scripts.watch_metadrive_3d runs/reference/ckpt.pt
+python -m scripts.watch_metadrive_3d runs/reference/ckpt.pt SSSS     # on a highway
+
+# DRIVING-USABILITY metrics (quantitative) -- route completion %, success, crash + off-road rate,
+# with random + IDM-expert baselines. Forced to MetaDrive, so it works on a "your-style" ckpt too:
+python -m scripts.eval_driving runs/reference/ckpt.pt                 # 5 episodes + baselines
+python -m scripts.eval_driving runs/gesture_reference/ckpt.pt 10      # your-style policy, 10 episodes
+python -m scripts.eval_driving runs/reference/ckpt.pt 5 SSSS          # on a highway
+python -m scripts.eval_driving runs/reference/ckpt.pt 5 - noidm       # skip the slower IDM baseline
+
+# RETURN-only closed loop (faster, less interpretable) -- actor return vs random:
+python -m scripts.eval_closed_loop runs/reference/ckpt.pt
+```
+> **Reading it:** the bar to clear is *beat random* (it learned something) and *approach IDM* (it's
+> actually good). A policy that beats random but trails IDM badly — low **route completion**, near-
+> zero **success** — is *learning but not yet usable* (the documented real-sim-control limit; see
+> `docs/SYSTEM_OVERVIEW.md` §7). `success_rate` needs a long enough `max_episode_steps` to reach the
+> destination — short horizons read 0% even for IDM, so lean on **route completion** there.
+
 ## 9. Where outputs go
 Everything writes under `runs/` (checkpoints `*.pt`, GIFs, `*.npz` sessions, JSON reports) — all
 **gitignored**. Experiment logs live in `experiments/` (tracked).

@@ -23,6 +23,40 @@ import numpy as np
 import torch
 
 
+def episode_outcome(info, total_return, steps):
+    """Classify one finished MetaDrive episode from its final `info` dict into a usability record.
+    PURE -- no env. A crash is ANY of MetaDrive's crash_* flags; arrive_dest = reached the goal."""
+    crash = bool(info.get("crash") or info.get("crash_vehicle") or info.get("crash_object")
+                 or info.get("crash_human") or info.get("crash_building"))
+    return {
+        "return": float(total_return),
+        "route_completion": float(info.get("route_completion", 0.0)),   # 0..1 along the route
+        "arrive_dest": bool(info.get("arrive_dest")),                   # reached the destination
+        "crash": crash,
+        "out_of_road": bool(info.get("out_of_road")),
+        "steps": int(steps),
+    }
+
+
+def summarize_driving(records):
+    """Aggregate per-episode `episode_outcome` records into driving-usability metrics. PURE.
+    success/crash/off_road are RATES over the episodes; the rest are means."""
+    n = len(records)
+    if n == 0:
+        return {"n": 0}
+    frac = lambda key: sum(1 for r in records if r[key]) / n
+    mean = lambda key: float(np.mean([r[key] for r in records]))
+    return {
+        "n": n,
+        "mean_return": mean("return"),
+        "route_completion": mean("route_completion"),
+        "success_rate": frac("arrive_dest"),
+        "crash_rate": frac("crash"),
+        "off_road_rate": frac("out_of_road"),
+        "mean_steps": mean("steps"),
+    }
+
+
 def _run_actor_episode(actor, world_model, env, max_steps):
     cfg = world_model.cfg
     device = torch.device(cfg.device)
