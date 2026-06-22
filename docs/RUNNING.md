@@ -218,6 +218,40 @@ python -m scripts.eval_closed_loop runs/reference/ckpt.pt
 > `docs/SYSTEM_OVERVIEW.md` §7). `success_rate` needs a long enough `max_episode_steps` to reach the
 > destination — short horizons read 0% even for IDM, so lean on **route completion** there.
 
+## 8c. Full script reference — every runnable entry point
+All run from the repo root as `python -m <module>`. `[arg]` = optional; `-` = "skip this positional".
+
+```bash
+# --- setup / sanity (no GPU, no models) ---
+python -m scripts.smoke_test                       # env + replay buffer + shapes work end-to-end
+python -m scripts.probe_metadrive [state|image]    # print YOUR MetaDrive install's obs shapes (set state_dim/image_size)
+python -m scripts.probe_metadrive_render           # check what 3-D rendering works on this machine
+
+# --- train ---
+python -m training.collect                         # collect trajectories into the replay buffer (dummy env, random)
+python -m training.train_world_model               # train just the world model (state mode, DummyEnv)
+python -m training.train_behavior                  # single-shot: WM + actor-critic in imagination (the toy)
+python -m training.dreamer_loop                    # the ITERATED Dreamer loop (the real algorithm)
+python -m scripts.run_metadrive [map]              # iterated Dreamer loop on MetaDrive (state mode) -> runs/metadrive/
+python -m scripts.drive_from_pixels                # image-mode: train a pixel WM + actor in imagination -> runs/visual/
+python -m training.train_reference                 # IDM-expert reference (WM+BC actor+critic) -> runs/reference/ckpt.pt
+python -m scripts.train_on_gesture [session.npz]   # learn YOUR driving from a session -> runs/gesture_reference/ckpt.pt
+
+# --- evaluate a trained policy (see 8b) ---
+python -m scripts.eval_driving <ckpt> [eps] [map] [noidm]   # route/success/crash vs random + IDM (forced MetaDrive)
+python -m scripts.eval_closed_loop [ckpt]          # actor return vs random (faster, less interpretable)
+python -m scripts.ablate_dynamics                  # GRU vs Mamba-style SSM on the same eval harness
+
+# --- watch / record / dream ---
+python -m scripts.watch_metadrive_3d [ckpt|-] [map]   # 3-D window: IDM expert (-) or OUR trained actor
+python -m scripts.record_metadrive [idm|forward] [map]   # top-down GIF of the sim -> runs/metadrive_drive.gif
+python -m scripts.dream_video [ckpt]               # render the world model's DREAM (condition on real frames, roll prior)
+
+# --- drive by hand + feedback (see 8 / 8b) ---
+python -m scripts.drive_gesture [keyboard|gesture|gesture-discrete|random|forward] [ckpt|-] [map] [2d|3d]
+python -m scripts.feedback_report [session.npz] [reference_ckpt.pt]   # offline habits report -> runs/feedback_report.json
+```
+
 ## 9. Where outputs go
 Everything writes under `runs/` (checkpoints `*.pt`, GIFs, `*.npz` sessions, JSON reports) — all
 **gitignored**. Experiment logs live in `experiments/` (tracked).
