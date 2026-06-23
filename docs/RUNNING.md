@@ -145,8 +145,10 @@ python -m scripts.drive_gesture gesture-discrete - SSSS            # 3-D highway
 python -m scripts.drive_gesture gesture-discrete runs/reference/ckpt.pt 2d  # force the old top-down GIF instead
 # 3) turn a recorded session into a habits report:
 python -m scripts.feedback_report                                  # -> runs/feedback_report.json
-# 4) TRAIN the model on YOUR driving (world model + a "your-style" reference cloned from the session):
-python -m scripts.train_on_gesture runs/gesture_session.npz        # -> runs/gesture_reference/ckpt.pt
+# 4) TRAIN the model on YOUR driving. Each drive (step 2) is auto-archived to runs/sessions/, so
+#    they ACCUMULATE -- train on ALL of them (more/varied data = better world model + critic):
+python -m scripts.train_on_gesture runs/sessions/                  # all archived drives -> runs/gesture_reference/ckpt.pt
+python -m scripts.train_on_gesture runs/gesture_session.npz        # ...or just your latest drive
 #    then re-drive critiqued against your OWN style instead of the IDM expert:
 python -m scripts.drive_gesture keyboard runs/gesture_reference/ckpt.pt
 
@@ -235,7 +237,7 @@ python -m training.dreamer_loop                    # the ITERATED Dreamer loop (
 python -m scripts.run_metadrive [map]              # iterated Dreamer loop on MetaDrive (state mode) -> runs/metadrive/
 python -m scripts.drive_from_pixels                # image-mode: train a pixel WM + actor in imagination -> runs/visual/
 python -m training.train_reference                 # IDM-expert reference (WM+BC actor+critic) -> runs/reference/ckpt.pt
-python -m scripts.train_on_gesture [session.npz]   # learn YOUR driving from a session -> runs/gesture_reference/ckpt.pt
+python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR driving; many drives accumulate (runs/sessions/)
 
 # --- evaluate a trained policy (see 8b) ---
 python -m scripts.eval_driving <ckpt> [eps] [map] [noidm]   # route/success/crash vs random + IDM (forced MetaDrive)

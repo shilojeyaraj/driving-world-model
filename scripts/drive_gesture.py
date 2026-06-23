@@ -209,6 +209,16 @@ def drive_gesture(policy="gesture", ckpt=None, steps=None, out_gif="runs/drive_g
     gif_msg = f"{out_gif} ({len(frames)} frames) and " if frames else ""
     print(f"saved {gif_msg}{session}  policy={policy} render={'3d' if render_3d else 'topdown'} "
           f"feedback={bool(feedback)}", flush=True)
+    # Archive real CLI drives (default session path) under runs/sessions/ so multiple drives
+    # ACCUMULATE -- train on them all with `train_on_gesture runs/sessions/`. (Explicit/custom
+    # session paths, e.g. smoke tests, are not archived.)
+    if session == "runs/gesture_session.npz":
+        import shutil, time
+        os.makedirs("runs/sessions", exist_ok=True)
+        archive = os.path.join("runs", "sessions", time.strftime("session_%Y%m%d_%H%M%S.npz"))
+        shutil.copyfile(session, archive)
+        print(f"archived -> {archive}  (train on ALL drives: python -m scripts.train_on_gesture runs/sessions/)",
+              flush=True)
 
 
 if __name__ == "__main__":
