@@ -22,6 +22,24 @@ from training.dreamer_loop import _train_world_model
 from utils import save_checkpoint
 
 
+def relabel_action(raw_action):
+    """The expert label stored for behavior cloning: FINITE and in the env's action range [-1,1]. PURE.
+    MetaDrive's IDM returns an UN-normalized longitudinal command, and at near-collision states the
+    learner drives into it emits a huge emergency-brake value (observed throttle ~ -198) or, in
+    degenerate states (speed~0, no lead vehicle), a NaN/inf. The agent's action space is [-1,1] and
+    env.step clips to it, so -198 *is* full brake = -1. An unclipped target the tanh-bounded actor
+    can never match blows bc_loss up (~12M); a NaN target makes the loss NaN -> SILENT collapse.
+    nan_to_num first (NaN->0 neutral, +-inf->large) THEN clip -- np.clip alone leaves NaN as NaN."""
+    a = np.nan_to_num(np.asarray(raw_action, dtype=np.float32), nan=0.0)
+    return np.clip(a, -1.0, 1.0)
+
+
+def dagger_capacity(collect_steps, iters, rollout_steps, margin=0):
+    """Replay capacity that holds ALL planned data (iter-0 IDM base + every rollout), so the buffer's
+    oldest-first eviction never discards the clean expert demonstrations over a long run. PURE."""
+    return collect_steps + iters * rollout_steps + margin
+
+
 def extend_buffer(buf, obs, actions, rewards, dones):
     """Add a collected trajectory to `buf`, then flush so its trailing steps form a CLOSED episode
     and can't bleed into the next rollout added to the same buffer. DAgger pours many rollouts into
@@ -63,9 +81,12 @@ def idm_relabel_rollout(cfg, wm, actor, steps, seed=0, buf=None):
                 e = wm.encoder(torch.as_tensor(obs, device=device).float().unsqueeze(0))
                 state, _, _ = wm.rssm.obs_step(state, prev, e)
                 a_actor, _ = actor(torch.cat(state, dim=-1), deterministic=True)
-            a_idm = np.asarray(idm.act(env.agent.id), dtype=np.float32)        # the relabel
+            a_idm = relabel_action(idm.act(env.agent.id))     # expert label: finite + clipped to [-1,1]
             raw, r, term, trunc, info = env.step(a_actor.squeeze(0).cpu().numpy())  # LEARNER drives
             done = bool(term or trunc)
+            # Guard #3: a non-finite obs would silently poison the WM/critic with NaN. Fail loud --
+            # dagger_train saves every iteration, so prior progress is preserved.
+            assert np.all(np.isfinite(obs)), "non-finite observation from MetaDrive in DAgger rollout"
             obs_l.append(obs); act_l.append(a_idm); rew_l.append(float(r)); done_l.append(done)
             prev = a_actor
             if done:
@@ -97,6 +118,7 @@ def dagger_train(cfg, iters=3, collect_steps=4000, rollout_steps=2000, wm_steps=
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     buf = collect_idm(cfg, collect_steps)          # iter-0 expert demonstrations
     buf._flush()                                   # close trailing run so relabel data can't bleed in
+    buf.capacity = max(buf.capacity, dagger_capacity(collect_steps, iters, rollout_steps, cfg.seq_len))
     print(f"iter 0: collected {len(buf)} IDM steps across {len(buf._episodes)} episodes", flush=True)
 
     wm = WorldModel(cfg, cfg.action_dim).to(cfg.device)
