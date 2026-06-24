@@ -46,10 +46,13 @@ def summarize_driving(records):
         return {"n": 0}
     frac = lambda key: sum(1 for r in records if r[key]) / n
     mean = lambda key: float(np.mean([r[key] for r in records]))
+    std = lambda key: float(np.std([r[key] for r in records]))    # spread across episodes (noise gauge)
     return {
         "n": n,
         "mean_return": mean("return"),
+        "return_std": std("return"),
         "route_completion": mean("route_completion"),
+        "route_completion_std": std("route_completion"),
         "success_rate": frac("arrive_dest"),
         "crash_rate": frac("crash"),
         "off_road_rate": frac("out_of_road"),

@@ -34,5 +34,20 @@ def test_summarize_driving_aggregates_rates_and_means():
     assert abs(s["mean_return"] - 6.0) < 1e-6
 
 
+def test_summarize_driving_reports_variability():
+    """n=5 evals swing ~±40% (Codevilla); the summary must report SPREAD so we can tell a real
+    change from noise -- std of route completion and return across episodes."""
+    import pytest
+    recs = [
+        {"return": 10.0, "route_completion": 0.2, "arrive_dest": False, "crash": False, "out_of_road": True, "steps": 100},
+        {"return": 30.0, "route_completion": 0.4, "arrive_dest": False, "crash": True,  "out_of_road": True, "steps": 50},
+    ]
+    s = summarize_driving(recs)
+    assert s["route_completion"] == pytest.approx(0.3)
+    assert s["route_completion_std"] == pytest.approx(0.1)   # population std of [0.2, 0.4]
+    assert s["return_std"] == pytest.approx(10.0)            # population std of [10, 30]
+
+
 def test_summarize_driving_empty_is_safe():
-    assert summarize_driving([])["n"] == 0
+    s = summarize_driving([])
+    assert s["n"] == 0
