@@ -6,7 +6,18 @@ the WM-latent actor goes off-road 100%, the under-trained WM latent is the bottl
 import numpy as np
 import torch
 
-from training.direct_bc import DirectPolicy, train_direct_bc
+from training.direct_bc import DirectPolicy, train_direct_bc, save_direct, load_direct
+
+
+def test_save_load_direct_roundtrip(tmp_path):
+    """A saved direct policy must load back to the SAME function (so watch/eval reuse it exactly)."""
+    pol = DirectPolicy(obs_dim=10, action_dim=2, hidden=32)
+    x = torch.randn(4, 10)
+    before = pol(x).detach()
+    p = str(tmp_path / "policy.pt")
+    save_direct(p, pol, obs_dim=10, action_dim=2)
+    after = load_direct(p)(x).detach()
+    assert torch.allclose(before, after, atol=1e-6)
 
 
 def test_direct_policy_outputs_bounded_actions():

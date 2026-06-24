@@ -5,6 +5,8 @@ world-model latent is the bottleneck (not the data or the imitation objective).
 
 L1 loss by default (Codevilla et al. 2019: better-correlated with driving than MSE, and outlier-robust).
 """
+import os
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -42,3 +44,18 @@ def train_direct_bc(policy, obs, act, steps, lr=3e-4, batch_size=256, l1=True, d
         opt.zero_grad(); loss.backward(); opt.step()
         last = float(loss.detach())
     return last
+
+
+def save_direct(path, policy, obs_dim, action_dim):
+    """Save a DirectPolicy (with its dims/width) so watch/eval can reload the exact function."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    torch.save({"state_dict": policy.state_dict(), "obs_dim": int(obs_dim),
+                "action_dim": int(action_dim), "hidden": policy.net[0].out_features}, path)
+
+
+def load_direct(path, device="cpu"):
+    ckpt = torch.load(path, map_location=device)
+    pol = DirectPolicy(ckpt["obs_dim"], ckpt["action_dim"], hidden=ckpt.get("hidden", 256))
+    pol.load_state_dict(ckpt["state_dict"])
+    pol.eval()
+    return pol
