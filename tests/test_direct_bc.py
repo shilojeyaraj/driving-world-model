@@ -9,6 +9,27 @@ import torch
 from training.direct_bc import DirectPolicy, train_direct_bc, save_direct, load_direct
 
 
+def test_train_direct_policy_cli_knobs():
+    from scripts.train_direct_policy import parse_args
+    a = parse_args(["--clean", "16000", "--recovery", "12000", "--perturb-prob", "0.1", "--gamma", "0.25"])
+    assert a.clean_steps == 16000 and a.recovery_steps == 12000
+    assert a.perturb_prob == 0.1 and a.gamma == 0.25
+    b = parse_args([])
+    assert b.clean_steps == 8000 and b.perturb_prob == 0.08      # defaults: scaled demos + tuned perturbation
+
+
+def test_flatten_buffer_concatenates_episodes():
+    """Flatten a sequence buffer's episodes to (obs, action) arrays for direct BC."""
+    from data.replay_buffer import SequenceReplayBuffer
+    from training.direct_bc import flatten_buffer
+    buf = SequenceReplayBuffer(capacity=1000, seq_len=2)
+    for i in range(5):
+        buf.add(np.full(3, i, np.float32), np.full(2, i, np.float32), 0.0, i == 4)  # one 5-step episode
+    obs, act = flatten_buffer(buf)
+    assert obs.shape == (5, 3) and act.shape == (5, 2)
+    assert obs[0].tolist() == [0, 0, 0] and act[4].tolist() == [4, 4]
+
+
 def test_save_load_direct_roundtrip(tmp_path):
     """A saved direct policy must load back to the SAME function (so watch/eval reuse it exactly)."""
     pol = DirectPolicy(obs_dim=10, action_dim=2, hidden=32)

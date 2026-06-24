@@ -46,6 +46,16 @@ def train_direct_bc(policy, obs, act, steps, lr=3e-4, batch_size=256, l1=True, d
     return last
 
 
+def flatten_buffer(buf):
+    """Flatten a SequenceReplayBuffer's stored episodes to flat (obs, action) arrays for direct BC.
+    PURE (reads buf._episodes; call buf._flush() first to include a trailing run)."""
+    if not buf._episodes:
+        return np.zeros((0, 0), np.float32), np.zeros((0, 0), np.float32)
+    obs = np.concatenate([e["obs"] for e in buf._episodes]).astype(np.float32)
+    act = np.concatenate([e["action"] for e in buf._episodes]).astype(np.float32)
+    return obs, act
+
+
 def save_direct(path, policy, obs_dim, action_dim):
     """Save a DirectPolicy (with its dims/width) so watch/eval can reload the exact function."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

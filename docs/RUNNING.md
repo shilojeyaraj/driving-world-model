@@ -296,6 +296,7 @@ python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR
 python -m scripts.dagger [--iters N] [--rollout-steps S] [--num-scenarios N] [--eval-episodes E]   # DAgger: BC + IDM-relabeled recovery data -> runs/dagger/ckpt.pt (see 8d)
 
 # --- direct obs->action policy (the route-39% path; no world model -- see ROADMAP.md A) ---
+python -m scripts.train_direct_policy [--clean N --recovery N --perturb-prob P --gamma G]   # PRODUCTION trainer -> runs/direct_bc/policy.pt + full eval
 python -m scripts.ablate_direct_bc [collect] [maps] [eps]   # latent-BC vs direct-BC, same data/maps (the ablation)
 python -m scripts.recovery_bc [clean] [recov] [maps] [eps]  # clean vs clean+recovery direct-BC -> runs/direct_bc/policy_recovery.pt
 python -m scripts.watch_direct_bc [policy.pt] [map]         # WATCH a direct policy drive in 3-D
