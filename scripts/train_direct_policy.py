@@ -50,10 +50,17 @@ def main(clean_steps=8000, recovery_steps=8000, direct_steps=8000, num_scenarios
     cfg.metadrive_start_seed, cfg.metadrive_num_scenarios = eval_start, eval_num
     cfg.metadrive_render, cfg.metadrive_endless = False, False
     print(f"held-out seeds {eval_start}-{eval_start + eval_num - 1}", flush=True)
-    print(f"  DRIVE    : {_fmt(summarize_driving(_run_episodes(cfg, episodes, _DirectAct(policy))))}", flush=True)
+    drive = summarize_driving(_run_episodes(cfg, episodes, _DirectAct(policy)))
+    print(f"  DRIVE    : {_fmt(drive)}", flush=True)
     recov = summarize_recovery(eval_recovery(cfg, policy, episodes))
     print(f"  RECOVERY : recovery_rate {recov['recovery_rate']:.0%}  mean_route {recov['mean_route']:.0%}  "
           f"(n={recov['n']})", flush=True)
+    # log this run as a milestone so the accuracy-over-the-project chart grows (scripts.plot_milestones)
+    try:
+        from training.progress_log import append_milestone
+        append_milestone("runs/milestones.csv", f"direct+rec {(clean_steps + recovery_steps) // 1000}k", drive)
+    except Exception as e:
+        print(f"  (milestone log skipped: {e!r})", flush=True)
     print(f"watch it:  python -m scripts.watch_direct_bc {out}", flush=True)
 
 

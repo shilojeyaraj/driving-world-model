@@ -7,7 +7,23 @@ import os
 
 import pytest
 
-from training.progress_log import progress_row, append_progress, read_progress
+from training.progress_log import (progress_row, append_progress, read_progress,
+                                    append_milestone, read_milestones)
+
+
+def test_append_read_milestones_roundtrip(tmp_path):
+    """Named milestones (latent-BC, direct+recovery, ...) -> a CSV for the 'accuracy over the project'
+    chart. Header written once; names + metrics round-trip."""
+    p = str(tmp_path / "milestones.csv")
+    append_milestone(p, "latent-BC", {"route_completion": 0.02, "crash_rate": 0.0, "off_road_rate": 0.0})
+    append_milestone(p, "direct+recovery", {"route_completion": 0.39, "crash_rate": 0.0, "off_road_rate": 0.30})
+    rows = read_milestones(p)
+    assert len(rows) == 2
+    assert rows[0]["milestone"] == "latent-BC"
+    assert rows[1]["route_completion"] == pytest.approx(0.39)
+    assert rows[1]["off_road_rate"] == pytest.approx(0.30)
+    with open(p) as f:
+        assert sum(1 for ln in f if ln.startswith("milestone")) == 1   # header once
 
 
 def _summary(route=0.23, success=0.0, crash=0.4, off=0.6, ret=12.3, n=5):
@@ -49,4 +65,16 @@ def test_plot_progress_writes_png(tmp_path):
         json.dump({"random_route": 0.02, "idm_route": 0.99}, f)
     out = str(tmp_path / "progress.png")
     plot_main(progress_csv=csv_path, baselines=bl_path, out=out)
+    assert os.path.exists(out) and os.path.getsize(out) > 0
+
+
+def test_plot_milestones_writes_png(tmp_path):
+    pytest.importorskip("matplotlib")
+    from scripts.plot_milestones import main as plot_main
+    mc = str(tmp_path / "milestones.csv")
+    for name, route, off in [("RANDOM", 0.02, 0.0), ("direct-BC", 0.24, 0.5),
+                             ("direct+recovery", 0.39, 0.30), ("IDM", 0.99, 0.0)]:
+        append_milestone(mc, name, {"route_completion": route, "crash_rate": 0.0, "off_road_rate": off})
+    out = str(tmp_path / "milestones.png")
+    plot_main(milestones=mc, out=out)
     assert os.path.exists(out) and os.path.getsize(out) > 0

@@ -48,12 +48,13 @@ the training set.
   **recovery_rate 40%** (n=10) — a discriminative isolation of the exact skill A adds.
 
 ## Tier 2 — after A shows lift
-### C. More + denser demos  ← **trainer built; scaling up**
+### C. More + denser demos  ← ✅ **DONE — route plateaus, recovery improves**
 `scripts/train_direct_policy.py` — the production trainer (clean + recovery demos, scalable +
-tunable perturbation), reporting the full held-out eval (route/crash/off-road **and** recovery_rate).
-Default 8k clean + 8k recovery (2× the A experiment), `--perturb-prob 0.08 --gamma 0.2`. Direct-BC
-fit easily (bc_loss ~0.05) → coverage-limited, not capacity — so more/denser demos is the lever.
-Running at scale to test if it lifts route past 39%.
+tunable perturbation), full held-out eval (route/crash/off-road **and** recovery_rate).
+**Result (8k+8k vs 4k+4k, deterministic eval):** route **39% → 39%** (plateau), off-road 30% (same),
+but **recovery_rate 40% → 70%** — more data made it *recover* much better, yet aggregate route is
+capped at ~39% by the residual off-road. **Takeaway: more demos alone won't break 39%** — the next
+lever is D (explicit off-road/progress signal), not scale.
 
 ### D. Auxiliary off-road / progress losses (ChauffeurNet's other half)
 Add explicit terms beyond cloning: penalize actions that lead off-road, reward progress. Needs the

@@ -312,6 +312,7 @@ python -m scripts.watch_metadrive_3d [ckpt|-] [map]   # 3-D window: IDM expert (
 python -m scripts.record_metadrive [idm|forward] [map]   # top-down GIF of the sim -> runs/metadrive_drive.gif
 python -m scripts.dream_video [ckpt]               # render the world model's DREAM (condition on real frames, roll prior)
 python -m scripts.plot_progress [progress.csv] [out.png]   # DAgger learning curve PNG from runs/dagger/progress.csv (see 8e)
+python -m scripts.plot_milestones [milestones.csv] [out.png]   # accuracy across approaches (route per milestone) -> runs/milestones.png
 
 # --- drive by hand + feedback (see 8 / 8b) ---
 python -m scripts.drive_gesture [keyboard|gesture|gesture-discrete|random|forward] [ckpt|-] [map] [2d|3d]
