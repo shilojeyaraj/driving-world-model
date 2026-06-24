@@ -13,6 +13,7 @@ watch_metadrive_3d work on runs/dagger/ckpt.pt unchanged.
 """
 import os
 import json
+import shutil
 
 import numpy as np
 import torch
@@ -150,6 +151,7 @@ def dagger_train(cfg, iters=3, collect_steps=4000, rollout_steps=2000, wm_steps=
     wm = WorldModel(cfg, cfg.action_dim).to(cfg.device)
     wm_opt = torch.optim.Adam(wm.parameters(), lr=cfg.lr)
     actor = critic = None
+    best_route, best_iter = -1.0, -1                # DAgger can REGRESS -- never lose the best model
     for it in range(iters + 1):
         if it > 0:                                 # grow the dataset with learner-visited, IDM-labeled states
             idm_relabel_rollout(cfg, wm, actor, rollout_steps, seed=it, buf=buf)
@@ -158,11 +160,19 @@ def dagger_train(cfg, iters=3, collect_steps=4000, rollout_steps=2000, wm_steps=
         actor, bc_loss = bc_actor(cfg, wm, buf, bc_steps)
         critic, critic_loss = eval_critic(cfg, wm, buf, critic_steps)
         save_checkpoint(out, wm, actor, critic, cfg)
+        shutil.copyfile(out, os.path.join(run_dir, f"ckpt_iter{it}.pt"))   # keep EVERY iteration
         print(f"iter {it}: recon={float(wm_m.get('recon', 0)):.3f} bc_loss={bc_loss:.4f} "
-              f"critic_loss={critic_loss:.4f} -> saved {out}", flush=True)
+              f"critic_loss={critic_loss:.4f} -> saved {out} (+ ckpt_iter{it}.pt)", flush=True)
         if eval_episodes > 0:
             sums = _eval_heldout(out, eval_episodes, with_idm=(it == 0))   # IDM baseline once, at iter 0
             _log_progress(it, sums, run_dir)                               # -> progress.csv (+ baselines.json)
+            route = float((sums or {}).get("actor", {}).get("route_completion", -1.0)) if sums else -1.0
+            if route > best_route:                                         # track the best held-out model
+                best_route, best_iter = route, it
+                shutil.copyfile(out, os.path.join(run_dir, "ckpt_best.pt"))
+                print(f"iter {it}: new BEST route {route:.0%} -> {os.path.join(run_dir, 'ckpt_best.pt')}", flush=True)
+    if best_iter >= 0:
+        print(f"BEST model = iter {best_iter} (route {best_route:.0%}) at {os.path.join(run_dir, 'ckpt_best.pt')}", flush=True)
     print(f"done. plot the learning curve:  python -m scripts.plot_progress "
           f"{os.path.join(run_dir, 'progress.csv')}", flush=True)
     return wm, actor, critic

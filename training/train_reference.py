@@ -23,13 +23,17 @@ from utils import save_checkpoint
 def collect_idm(cfg, steps, seed=0):
     """Drive MetaDrive with the built-in IDM expert and record (obs, IDM-action, reward, done).
     The action the env actually applied is `info["action"]` (the dummy action we pass is ignored
-    when agent_policy=IDMPolicy)."""
+    when agent_policy=IDMPolicy). Built from metadrive_config(cfg) so the MAP POOL (num_scenarios /
+    start_seed / map) threads through -- diverse on-road expert demos, not one fixed map."""
     from metadrive.envs import MetaDriveEnv
     from metadrive.policy.idm_policy import IDMPolicy
-    from envs.metadrive_env import adapt_obs
+    from envs.metadrive_env import adapt_obs, metadrive_config
 
     np.random.seed(seed)
-    env = MetaDriveEnv(dict(use_render=False, horizon=cfg.max_episode_steps, agent_policy=IDMPolicy))
+    md = metadrive_config(cfg)
+    md["use_render"] = False                     # headless data collection
+    md["agent_policy"] = IDMPolicy               # IDM drives; our dummy action is ignored
+    env = MetaDriveEnv(md)
     buf = SequenceReplayBuffer(cfg.buffer_capacity, cfg.seq_len)
     dummy = np.zeros(cfg.action_dim, dtype=np.float32)
     obs = adapt_obs(env.reset()[0], cfg.obs_type)

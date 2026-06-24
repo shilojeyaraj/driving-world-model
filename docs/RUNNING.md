@@ -252,14 +252,28 @@ python -m scripts.dagger                                  # 3 rounds, 50-map poo
 python -m scripts.dagger --iters 5 --rollout-steps 3000   # more rounds + more recovery data per round
 python -m scripts.dagger --eval-episodes 0                # skip per-iter eval (faster iterations)
 python -m scripts.dagger --help                           # every knob
-# then judge it (held-out maps) / watch it:
-python -m scripts.eval_driving runs/dagger/ckpt.pt
-python -m scripts.watch_metadrive_3d runs/dagger/ckpt.pt
+# judge / watch the BEST round (NOT necessarily the last -- DAgger can regress):
+python -m scripts.eval_driving runs/dagger/ckpt_best.pt
+python -m scripts.watch_metadrive_3d runs/dagger/ckpt_best.pt
+python -m scripts.plot_progress                           # learning curve PNG (see 8e)
 ```
-> It prints route/success/crash on the **held-out** map pool after each round, so you watch the
-> policy improve on roads it never trained on. Each round is a (slow, CPU) MetaDrive run — keep
-> `--rollout-steps`/`--collect` modest while tuning. DAgger is bounded by IDM's skill: expect
-> *improvement over route 3%*, not instant route-99%.
+> Outputs in `runs/dagger/`: `ckpt_iter{N}.pt` (every round kept), **`ckpt_best.pt`** (highest
+> held-out route — use this one), `progress.csv` + `baselines.json` (for the chart). It prints
+> route/success/crash on the **held-out** pool after each round. Each round is a (slow, CPU)
+> MetaDrive run — keep `--rollout-steps`/`--collect` modest while tuning. DAgger is bounded by IDM's
+> skill (and can *regress* if the learner drifts far off-road), so the **best** round may not be the
+> last — that's why `ckpt_best.pt` exists.
+
+## 8e. Progress visualization — the learning curve
+A shareable "is the car learning?" chart: route completion % vs DAgger iteration, with dashed
+Random (floor) and IDM (ceiling) reference lines. Needs matplotlib (`pip install matplotlib`).
+```bash
+python -m scripts.plot_progress                                   # runs/dagger/progress.csv -> progress.png
+python -m scripts.plot_progress runs/dagger/progress.csv out.png  # explicit paths
+```
+> `scripts.dagger` writes `runs/dagger/progress.csv` (one row per round) + `baselines.json` as it
+> trains; this renders them to `runs/dagger/progress.png`. The CSV is dependency-free (open it in
+> Excel too); only the plot needs matplotlib.
 
 ## 8c. Full script reference — every runnable entry point
 All run from the repo root as `python -m <module>`. `[arg]` = optional; `-` = "skip this positional".
@@ -290,6 +304,7 @@ python -m scripts.ablate_dynamics                  # GRU vs Mamba-style SSM on t
 python -m scripts.watch_metadrive_3d [ckpt|-] [map]   # 3-D window: IDM expert (-) or OUR trained actor
 python -m scripts.record_metadrive [idm|forward] [map]   # top-down GIF of the sim -> runs/metadrive_drive.gif
 python -m scripts.dream_video [ckpt]               # render the world model's DREAM (condition on real frames, roll prior)
+python -m scripts.plot_progress [progress.csv] [out.png]   # DAgger learning curve PNG from runs/dagger/progress.csv (see 8e)
 
 # --- drive by hand + feedback (see 8 / 8b) ---
 python -m scripts.drive_gesture [keyboard|gesture|gesture-discrete|random|forward] [ckpt|-] [map] [2d|3d]
