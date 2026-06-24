@@ -241,6 +241,26 @@ python -m scripts.eval_closed_loop runs/reference/ckpt.pt
 > *disjoint* from the training pool (`run_metadrive` trains on seeds `0…N-1`; eval uses `N…N+M-1`).
 > So a high score here means the policy generalizes to roads it never saw — not that it memorized.
 
+## 8d. DAgger — train a learned policy that actually recovers
+Plain behavior cloning of IDM hits route ~3%: it only ever saw the expert's *good* states, so once
+it drifts off-center it has never seen a recovery and fails (distribution shift). **DAgger** (Dataset
+Aggregation) fixes this — each round it rolls out the *current* learner so it drifts, has the **IDM
+expert relabel** every visited state with the correct action, aggregates into a growing dataset, and
+retrains. Output is a normal checkpoint (`runs/dagger/ckpt.pt`).
+```bash
+python -m scripts.dagger                                  # 3 rounds, 50-map pool, per-iter held-out eval
+python -m scripts.dagger --iters 5 --rollout-steps 3000   # more rounds + more recovery data per round
+python -m scripts.dagger --eval-episodes 0                # skip per-iter eval (faster iterations)
+python -m scripts.dagger --help                           # every knob
+# then judge it (held-out maps) / watch it:
+python -m scripts.eval_driving runs/dagger/ckpt.pt
+python -m scripts.watch_metadrive_3d runs/dagger/ckpt.pt
+```
+> It prints route/success/crash on the **held-out** map pool after each round, so you watch the
+> policy improve on roads it never trained on. Each round is a (slow, CPU) MetaDrive run — keep
+> `--rollout-steps`/`--collect` modest while tuning. DAgger is bounded by IDM's skill: expect
+> *improvement over route 3%*, not instant route-99%.
+
 ## 8c. Full script reference — every runnable entry point
 All run from the repo root as `python -m <module>`. `[arg]` = optional; `-` = "skip this positional".
 
@@ -259,6 +279,7 @@ python -m scripts.run_metadrive [--map M] [--num-scenarios N] [--iters I] [--wm-
 python -m scripts.drive_from_pixels                # image-mode: train a pixel WM + actor in imagination -> runs/visual/
 python -m training.train_reference                 # IDM-expert reference (WM+BC actor+critic) -> runs/reference/ckpt.pt
 python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR driving; many drives accumulate (runs/sessions/)
+python -m scripts.dagger [--iters N] [--rollout-steps S] [--num-scenarios N] [--eval-episodes E]   # DAgger: BC + IDM-relabeled recovery data -> runs/dagger/ckpt.pt (see 8d)
 
 # --- evaluate a trained policy (see 8b) ---
 python -m scripts.eval_driving <ckpt> [eps] [map] [noidm]   # route/success/crash vs random + IDM (forced MetaDrive)
