@@ -94,9 +94,9 @@ class _FixedPolicy:
 def _fmt(s):
     if s.get("n", 0) == 0:
         return "no episodes"
-    return (f"route {s['route_completion']:.0%}±{s.get('route_completion_std', 0):.0%}  "
+    return (f"route {s['route_completion']:.0%}+/-{s.get('route_completion_std', 0):.0%}  "
             f"success {s['success_rate']:.0%}  crash {s['crash_rate']:.0%}  off-road {s['off_road_rate']:.0%}  "
-            f"return {s['mean_return']:+.1f}±{s.get('return_std', 0):.1f}  "
+            f"return {s['mean_return']:+.1f}+/-{s.get('return_std', 0):.1f}  "
             f"steps {s['mean_steps']:.0f}  (n={s['n']})")
 
 
