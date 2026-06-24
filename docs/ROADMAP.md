@@ -19,7 +19,11 @@ the policy commits to driving but, having only seen clean centerline demos, can'
 
 ## Tier 1 — highest leverage (build next)
 
-### A. Recovery data via perturbation  ← **in progress**
+### A. Recovery data via perturbation  ← ✅ **DONE — it works**
+**Result (`scripts/recovery_bc`, n=10 held-out):** clean+recovery vs clean-only →
+route **24% → 39%**, crash **20% → 0%**, off-road **50% → 30%**, return +93 → +138, steps 137 → 174.
+A real win (gap > the ±11% std). Best learned policy so far; saved `runs/direct_bc/policy_recovery.pt`.
+
 The off-road fix. The policy never learned recovery because it only saw the expert driving cleanly.
 Inject perturbations during expert collection (DART; Codevilla §A.3; ChauffeurNet) so the car visits
 **off-center states**, and record **IDM's correct action there** as the label — recovery is now *in*
