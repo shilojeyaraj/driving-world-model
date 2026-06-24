@@ -6,13 +6,15 @@ See docs/METADRIVE.md.
 
 Trains across a POOL of procedurally-generated maps (domain randomization, default 100) so the
 policy learns to drive rather than memorize one road; eval_driving then grades it on a disjoint
-held-out map pool. Pass `-` to keep the default random-block map, or a map arg to fix the scene.
+held-out map pool. All training knobs are CLI flags (see --help) -- no `python -c` needed.
 
-Usage:  python -m scripts.run_metadrive            # 100 random maps (seeds 0-99), 3-block geometry
-        python -m scripts.run_metadrive - 500      # bigger pool: 500 maps
-        python -m scripts.run_metadrive SSSS 100   # fix the scene (highway), 100 seeds (traffic varies)
+Usage:  python -m scripts.run_metadrive                                  # defaults: 100 maps, 4 iters
+        python -m scripts.run_metadrive --num-scenarios 500             # bigger map pool
+        python -m scripts.run_metadrive --iters 12 --wm-steps 1500 --behavior-steps 1000 --collect 2000 --seed-steps 3000
+        python -m scripts.run_metadrive --entropy 0.03                  # more exploration (fight collapse)
+        python -m scripts.run_metadrive --map SSSS                      # fix the scene (highway), traffic varies
 """
-import os, sys
+import os, sys, argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
@@ -24,24 +26,54 @@ from training.dreamer_loop import dreamer_train
 from eval.closed_loop import closed_loop_eval
 from utils import save_checkpoint
 
+DEFAULT_ENTROPY = 1e-2     # actor entropy bonus. Raised from the old 1e-3 (which let the policy
+                           # collapse to saturated full-left/full-throttle): more exploration pressure
+                           # keeps it trying varied actions instead of locking into one bad habit.
 
-def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior_steps=400,
-         out="runs/metadrive/ckpt.pt", road_map=None, traffic_density=0.1, num_scenarios=100):
+
+def build_cfg(num_scenarios=100, road_map=None, traffic_density=0.1, entropy_coef=DEFAULT_ENTROPY):
+    """Build the training cfg. Extracted from main() so the map-pool + entropy wiring is unit-testable
+    WITHOUT running the sim. road_map: None -> 3 random blocks (varied geometry per seed); a digit
+    string -> that many random blocks; a letter string (e.g. "SSSS") -> a fixed scene.
+    Trains on seeds [0, num_scenarios); eval_driving derives the DISJOINT held-out range from this."""
     if isinstance(road_map, str) and road_map.isdigit():
         road_map = int(road_map)
     if road_map is None:
-        road_map = 3                # 3 random blocks -> different road geometry per map seed
-    # TRAIN on a pool of `num_scenarios` maps starting at seed 0 (domain randomization). eval_driving
-    # derives the DISJOINT held-out eval range from this via train_eval_seed_split, so it grades the
-    # policy on maps it never trained on.
-    cfg = get_config(env="metadrive", obs_type="state", state_dim=259, action_dim=2,
-                     deter_dim=128, stoch_dim=32, hidden_dim=128, seq_len=10, imagine_horizon=15,
-                     gamma=0.99, lambda_=0.95, entropy_coef=1e-3, actor_lr=3e-4, critic_lr=3e-4,
-                     lr=3e-4, batch_size=16, max_episode_steps=200,
-                     metadrive_map=road_map, metadrive_traffic_density=traffic_density,
-                     metadrive_num_scenarios=int(num_scenarios), metadrive_start_seed=0)
+        road_map = 3
+    return get_config(env="metadrive", obs_type="state", state_dim=259, action_dim=2,
+                      deter_dim=128, stoch_dim=32, hidden_dim=128, seq_len=10, imagine_horizon=15,
+                      gamma=0.99, lambda_=0.95, entropy_coef=entropy_coef, actor_lr=3e-4, critic_lr=3e-4,
+                      lr=3e-4, batch_size=16, max_episode_steps=200,
+                      metadrive_map=road_map, metadrive_traffic_density=traffic_density,
+                      metadrive_num_scenarios=int(num_scenarios), metadrive_start_seed=0)
+
+
+def parse_args(argv):
+    """CLI for the training knobs, so they're tunable without editing code or `python -c`."""
+    p = argparse.ArgumentParser(prog="run_metadrive", description="Dreamer loop on MetaDrive (state).")
+    p.add_argument("--map", dest="road_map", default=None,
+                   help='scene: int N (N random blocks) or block letters e.g. "SSSS"; default 3 blocks')
+    p.add_argument("--num-scenarios", dest="num_scenarios", type=int, default=100,
+                   help="size of the TRAIN map pool (domain randomization)")
+    p.add_argument("--iters", type=int, default=4, help="collect->train-WM->train-actor iterations")
+    p.add_argument("--seed-steps", dest="seed_steps", type=int, default=1500, help="initial random steps")
+    p.add_argument("--collect", dest="collect_per_iter", type=int, default=1000, help="policy steps per iter")
+    p.add_argument("--wm-steps", dest="wm_steps", type=int, default=400, help="world-model grad steps/iter")
+    p.add_argument("--behavior-steps", dest="behavior_steps", type=int, default=400,
+                   help="actor-critic grad steps/iter (in imagination)")
+    p.add_argument("--entropy", dest="entropy_coef", type=float, default=DEFAULT_ENTROPY,
+                   help="actor entropy bonus; raise to fight action-collapse")
+    p.add_argument("--out", default="runs/metadrive/ckpt.pt", help="checkpoint path")
+    return p.parse_args(argv)
+
+
+def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior_steps=400,
+         out="runs/metadrive/ckpt.pt", road_map=None, traffic_density=0.1, num_scenarios=100,
+         entropy_coef=DEFAULT_ENTROPY):
+    cfg = build_cfg(num_scenarios, road_map, traffic_density, entropy_coef)
     print(f"training on {num_scenarios} maps (seeds 0-{int(num_scenarios) - 1}), "
-          f"map={road_map} random blocks", flush=True)
+          f"map={cfg.metadrive_map} blocks, entropy={entropy_coef}, iters={iters} "
+          f"(wm {wm_steps}/iter, actor {behavior_steps}/iter)", flush=True)
     torch.manual_seed(0); np.random.seed(0)
     env = make_env(cfg)                                  # one sim instance, reused throughout
 
@@ -57,6 +89,7 @@ def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior
 
 
 if __name__ == "__main__":
-    rm = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] not in ("-", "none") else None
-    ns = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 100
-    main(road_map=rm, num_scenarios=ns)
+    a = parse_args(sys.argv[1:])
+    main(iters=a.iters, seed_steps=a.seed_steps, collect_per_iter=a.collect_per_iter,
+         wm_steps=a.wm_steps, behavior_steps=a.behavior_steps, out=a.out, road_map=a.road_map,
+         num_scenarios=a.num_scenarios, entropy_coef=a.entropy_coef)

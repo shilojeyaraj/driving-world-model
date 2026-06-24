@@ -106,13 +106,21 @@ python -m scripts.watch_metadrive_3d runs/metadrive/ckpt.pt   # 3-D window, OUR 
 > ```bash
 > python -m scripts.watch_metadrive_3d - X       # intersection   (S straight, C curve, X intersection,
 > python -m scripts.watch_metadrive_3d - SSSS    # highway         O roundabout, T t-junction, r/R ramp; int N = N random)
-> python -m scripts.run_metadrive X 100         # FIX the scene to X across 100 seeds (spawn/traffic vary)
+> python -m scripts.run_metadrive --map X --num-scenarios 100   # FIX the scene to X across 100 seeds
 > ```
-> **Map randomization (general policy):** with **no** map arg, `run_metadrive` trains across a *pool*
-> of procedurally-generated maps (default **100**, `python -m scripts.run_metadrive - 500` for more) so
-> the policy learns to *drive* instead of memorizing one road. `eval_driving` then grades it on a
-> **disjoint held-out** pool (seeds it never trained on) — true generalization, not memorization.
-> Knobs: `cfg.metadrive_num_scenarios` (train pool), `cfg.metadrive_eval_scenarios` (held-out pool).
+> **Map randomization (general policy):** with **no** `--map`, `run_metadrive` trains across a *pool*
+> of procedurally-generated maps (default **100**; `--num-scenarios 500` for more) so the policy
+> learns to *drive* instead of memorizing one road. `eval_driving` then grades it on a **disjoint
+> held-out** pool (seeds it never trained on) — true generalization, not memorization.
+> ```bash
+> # a real (slow) training run, all knobs from the CLI -- no python -c:
+> python -m scripts.run_metadrive --iters 12 --wm-steps 1500 --behavior-steps 1000 --collect 2000 --seed-steps 3000
+> python -m scripts.run_metadrive --entropy 0.03   # MORE exploration -> fights the full-left/full-throttle collapse
+> python -m scripts.run_metadrive --help           # every knob
+> ```
+> Entropy (`--entropy`, default 0.01, was 0.001) is the anti-collapse lever: it keeps the actor
+> trying varied actions instead of locking onto one saturated habit. Config equivalents:
+> `cfg.entropy_coef`, `cfg.metadrive_num_scenarios` (train pool), `cfg.metadrive_eval_scenarios` (held-out).
 
 ## 7b. DonkeyCar / DonkeyGym (rendered 3-D camera sim)  — see docs/DONKEYCAR.md
 ```bash
@@ -247,7 +255,7 @@ python -m training.collect                         # collect trajectories into t
 python -m training.train_world_model               # train just the world model (state mode, DummyEnv)
 python -m training.train_behavior                  # single-shot: WM + actor-critic in imagination (the toy)
 python -m training.dreamer_loop                    # the ITERATED Dreamer loop (the real algorithm)
-python -m scripts.run_metadrive [map] [num_scenarios]   # Dreamer loop across a POOL of random maps (default 100) -> runs/metadrive/
+python -m scripts.run_metadrive [--map M] [--num-scenarios N] [--iters I] [--wm-steps W] [--behavior-steps B] [--collect C] [--seed-steps S] [--entropy E]   # Dreamer loop across a POOL of random maps -> runs/metadrive/ (see --help)
 python -m scripts.drive_from_pixels                # image-mode: train a pixel WM + actor in imagination -> runs/visual/
 python -m training.train_reference                 # IDM-expert reference (WM+BC actor+critic) -> runs/reference/ckpt.pt
 python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR driving; many drives accumulate (runs/sessions/)
