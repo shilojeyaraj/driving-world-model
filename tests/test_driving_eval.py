@@ -1,7 +1,31 @@
 """Driving-usability metrics (eval/closed_loop.py): is a trained policy actually usable -- does it
 get down the route without crashing? The aggregation is PURE so it's testable without MetaDrive;
 the live episode runners (which need MetaDrive) are exercised by scripts/eval_driving.py."""
-from eval.closed_loop import episode_outcome, summarize_driving
+from eval.closed_loop import episode_outcome, summarize_driving, eval_seeds, summarize_recovery
+
+
+def test_eval_seeds_are_deterministic_and_in_range():
+    """Fixed, in-range map seeds so two eval runs see the SAME maps (comparable, not noisy)."""
+    assert eval_seeds(50, 50, 10) == list(range(50, 60))
+    assert eval_seeds(50, 3, 5) == [50, 51, 52, 50, 51]      # cycles within the pool
+    s = eval_seeds(100, 7, 20)
+    assert len(s) == 20 and all(100 <= x < 107 for x in s)   # never leaves [start, start+num)
+
+
+def test_summarize_recovery_rate():
+    """Targeted recovery metric: fraction of perturbed-start episodes that got back (didn't end off-road)."""
+    recs = [{"recovered": True, "route_completion": 0.5},
+            {"recovered": False, "route_completion": 0.1},
+            {"recovered": True, "route_completion": 0.4},
+            {"recovered": True, "route_completion": 0.6}]
+    s = summarize_recovery(recs)
+    assert s["recovery_rate"] == 0.75
+    assert s["n"] == 4
+    assert abs(s["mean_route"] - 0.4) < 1e-6
+
+
+def test_summarize_recovery_empty_is_safe():
+    assert summarize_recovery([])["n"] == 0
 
 
 def test_episode_outcome_classifies_crash_route_and_return():

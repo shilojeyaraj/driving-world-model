@@ -34,13 +34,16 @@ def _run_episodes(cfg, episodes, act, idm=False):
     """Run `episodes` MetaDrive episodes, `act(obs)->action` choosing each step (ignored under IDM,
     which drives itself). Returns a list of episode_outcome records."""
     from envs.metadrive_env import adapt_obs
-    from eval.closed_loop import episode_outcome
+    from eval.closed_loop import episode_outcome, eval_seeds
     env = _metadrive(cfg, idm=idm)
     max_steps = cfg.max_episode_steps
+    # FIXED, in-range seeds so every eval run sees the SAME held-out maps (comparable across runs).
+    seeds = eval_seeds(int(getattr(cfg, "metadrive_start_seed", 0)),
+                       int(getattr(cfg, "metadrive_num_scenarios", 1)), episodes)
     recs = []
     try:
-        for _ in range(episodes):
-            obs = adapt_obs(env.reset()[0], "state")
+        for i in range(episodes):
+            obs = adapt_obs(env.reset(seed=seeds[i])[0], "state")
             total, info, steps = 0.0, {}, 0
             act.reset()
             for t in range(max_steps):

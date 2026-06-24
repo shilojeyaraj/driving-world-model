@@ -39,11 +39,13 @@ the training set.
 - Files: `training/recovery.py` (`triangular_impulse`, `collect_idm_perturbed`),
   `scripts/recovery_bc.py` (clean vs clean+recovery comparison).
 
-### B. Eval gauge — finish it (so we can measure A)
-- ✅ per-episode variability (`route X%±Y%`, `return ±Z`) — shipped.
-- ☐ **Deterministic fixed eval seeds** (same held-out maps every run → comparable).
-- ☐ **Targeted recovery metric**: perturb the first N steps off-center, measure recovery rate —
-  isolates exactly the failure A targets, better than aggregate off-road %.
+### B. Eval gauge  ← ✅ **DONE**
+- ✅ per-episode variability (`route X%+/-Y%`, `return +/-Z`) — `summarize_driving` + `eval_driving`.
+- ✅ **Deterministic fixed eval seeds** — `eval_seeds` + `env.reset(seed=...)` in `_run_episodes`, so
+  every eval (eval_driving / recovery_bc / ablate_direct_bc) sees the SAME held-out maps each run.
+- ✅ **Targeted recovery metric** — `scripts/eval_recovery.py`: forces the car off-center for the first
+  K steps, then measures whether the policy gets back (didn't end off-road). The recovery policy scored
+  **recovery_rate 40%** (n=10) — a discriminative isolation of the exact skill A adds.
 
 ## Tier 2 — after A shows lift
 ### C. More + denser demos

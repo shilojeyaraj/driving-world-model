@@ -60,6 +60,28 @@ def summarize_driving(records):
     }
 
 
+def eval_seeds(eval_start, eval_num, episodes):
+    """Deterministic, in-range MetaDrive map seeds for reproducible eval: episode i -> start + (i % num),
+    so two eval runs see the SAME maps (comparable, not noisy). Stays within [start, start+num) (the
+    configured pool), which env.reset(seed=...) requires. PURE."""
+    num = max(1, int(eval_num))
+    return [int(eval_start) + (i % num) for i in range(int(episodes))]
+
+
+def summarize_recovery(records):
+    """Targeted recovery metric: each record = {recovered: bool, route_completion: float} from a
+    perturbed-START episode (pushed off-center, then the policy drives). recovery_rate = fraction that
+    got back without ending off-road. PURE."""
+    n = len(records)
+    if n == 0:
+        return {"n": 0}
+    return {
+        "n": n,
+        "recovery_rate": sum(1 for r in records if r["recovered"]) / n,
+        "mean_route": float(np.mean([r["route_completion"] for r in records])),
+    }
+
+
 def _run_actor_episode(actor, world_model, env, max_steps):
     cfg = world_model.cfg
     device = torch.device(cfg.device)

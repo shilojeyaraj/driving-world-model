@@ -295,8 +295,14 @@ python -m training.train_reference                 # IDM-expert reference (WM+BC
 python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR driving; many drives accumulate (runs/sessions/)
 python -m scripts.dagger [--iters N] [--rollout-steps S] [--num-scenarios N] [--eval-episodes E]   # DAgger: BC + IDM-relabeled recovery data -> runs/dagger/ckpt.pt (see 8d)
 
+# --- direct obs->action policy (the route-39% path; no world model -- see ROADMAP.md A) ---
+python -m scripts.ablate_direct_bc [collect] [maps] [eps]   # latent-BC vs direct-BC, same data/maps (the ablation)
+python -m scripts.recovery_bc [clean] [recov] [maps] [eps]  # clean vs clean+recovery direct-BC -> runs/direct_bc/policy_recovery.pt
+python -m scripts.watch_direct_bc [policy.pt] [map]         # WATCH a direct policy drive in 3-D
+python -m scripts.eval_recovery [policy.pt] [eps] [psteps]  # targeted recovery metric (forced off-center start)
+
 # --- evaluate a trained policy (see 8b) ---
-python -m scripts.eval_driving <ckpt> [eps] [map] [noidm]   # route/success/crash vs random + IDM (forced MetaDrive)
+python -m scripts.eval_driving <ckpt> [eps] [map] [noidm]   # route/success/crash vs random + IDM (forced MetaDrive, fixed seeds)
 python -m scripts.eval_closed_loop [ckpt]          # actor return vs random (faster, less interpretable)
 python -m scripts.ablate_dynamics                  # GRU vs Mamba-style SSM on the same eval harness
 
