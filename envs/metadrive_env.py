@@ -47,7 +47,11 @@ def metadrive_config(cfg):
     O roundabout, T t-junction, r/R ramp); traffic_density sets how many other cars."""
     md = dict(use_render=bool(getattr(cfg, "metadrive_render", False)),
               horizon=cfg.max_episode_steps,
-              traffic_density=float(getattr(cfg, "metadrive_traffic_density", 0.1)))
+              traffic_density=float(getattr(cfg, "metadrive_traffic_density", 0.1)),
+              # map randomization: a pool of map seeds. reset() samples one from
+              # [start_seed, start_seed+num_scenarios). Default 1/0 == MetaDrive's single-map default.
+              num_scenarios=int(getattr(cfg, "metadrive_num_scenarios", 1)),
+              start_seed=int(getattr(cfg, "metadrive_start_seed", 0)))
     m = getattr(cfg, "metadrive_map", None)
     if m is not None:
         md["map"] = m
@@ -66,6 +70,13 @@ def metadrive_config(cfg):
         if getattr(cfg, "metadrive_manual_control", False):
             md.update(manual_control=True, controller="keyboard")   # drive with WASD in the window
     return md
+
+
+def train_eval_seed_split(num_train, num_eval, base=0):
+    """Disjoint map-seed ranges so eval maps are NEVER trained on (a held-out generalization test).
+    Training uses [base, base+num_train); eval uses the range immediately after it. PURE.
+    Returns ((train_start, train_num), (eval_start, eval_num))."""
+    return (base, num_train), (base + num_train, num_eval)
 
 
 def applied_action(env, proposed, manual):

@@ -28,6 +28,12 @@ class Config:
     metadrive_manual_control: bool = False   # drive the 3-D window yourself with WASD (no webcam)
     metadrive_endless: bool = False          # NEVER reset: off-road/line/crash terminations off AND
                                              # horizon unbounded -- a human drives continuously, no resets
+    # map randomization (domain randomization): a pool of procedurally-generated maps so a policy
+    # learns to DRIVE rather than memorize one road. Each reset() samples a seed from
+    # [start_seed, start_seed+num_scenarios). Default 1 = the single fixed map we trained on before.
+    metadrive_num_scenarios: int = 1         # size of the TRAIN map pool (1 = single fixed map)
+    metadrive_eval_scenarios: int = 50       # size of the held-out EVAL pool (disjoint from train)
+    metadrive_start_seed: int = 0            # first map seed
 
     # --- donkey (DonkeyGym Unity sim; image mode) -- see docs/DONKEYCAR.md ---
     donkey_level: int = 3        # 0=roads 1=warehouse 2=avc-sparkfun 3=generated-track

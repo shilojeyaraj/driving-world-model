@@ -6,7 +6,8 @@ runs only if MetaDrive is actually importable.
 import numpy as np
 import pytest
 
-from envs.metadrive_env import adapt_obs, metadrive_config, disable_shadows, applied_action
+from envs.metadrive_env import (adapt_obs, metadrive_config, disable_shadows, applied_action,
+                                train_eval_seed_split)
 from config import get_config
 
 
@@ -139,6 +140,40 @@ def test_disable_shadows_is_a_safe_noop_without_a_live_engine():
     class _NoEngine: pass
     assert disable_shadows(_NoEngine()) is False
     assert disable_shadows(None) is False
+
+
+def test_metadrive_config_sets_scenario_pool_from_cfg():
+    """Map randomization: the scene pool (num_scenarios) + first seed (start_seed) pass straight
+    through to MetaDrive, so each reset() samples a map from [start_seed, start_seed+num_scenarios)."""
+    cfg = get_config(env="metadrive", metadrive_num_scenarios=100, metadrive_start_seed=5,
+                     max_episode_steps=50)
+    md = metadrive_config(cfg)
+    assert md["num_scenarios"] == 100
+    assert md["start_seed"] == 5
+
+
+def test_metadrive_config_default_is_single_fixed_map():
+    """Backward compatible: a default cfg keeps the single-map pool (seed 0) we trained on before."""
+    cfg = get_config(env="metadrive", max_episode_steps=50)
+    md = metadrive_config(cfg)
+    assert md["num_scenarios"] == 1
+    assert md["start_seed"] == 0
+
+
+def test_train_eval_seed_split_gives_disjoint_ranges():
+    """The held-out split: train and eval seed ranges must not overlap, so eval drives maps the
+    policy never trained on. PURE."""
+    (train_start, train_num), (eval_start, eval_num) = train_eval_seed_split(100, 50)
+    assert (train_start, train_num) == (0, 100)
+    assert (eval_start, eval_num) == (100, 50)
+    assert train_start + train_num == eval_start          # adjacent, no gap, no overlap
+
+
+def test_train_eval_seed_split_honors_base_offset():
+    """A non-zero base shifts both ranges together, still disjoint."""
+    train, ev = train_eval_seed_split(10, 4, base=1000)
+    assert train == (1000, 10)
+    assert ev == (1010, 4)
 
 
 def test_metadrive_live_smoke():

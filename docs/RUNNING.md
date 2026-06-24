@@ -95,7 +95,7 @@ python -m scripts.drive_from_pixels          # policy trained + driving from pix
 ## 7. MetaDrive (real sim)  — see docs/METADRIVE.md
 ```bash
 python -m scripts.probe_metadrive state      # print the real obs dim -> set cfg.state_dim (259)
-python -m scripts.run_metadrive              # iterated Dreamer loop on MetaDrive (state mode)
+python -m scripts.run_metadrive              # Dreamer loop across 100 RANDOM maps (domain randomization)
 python -m scripts.record_metadrive           # WATCH it (top-down GIF): IDM -> runs/metadrive_drive.gif
 # rendered 3-D window (the docs look; needs a display, integrated GPU is fine):
 python -m metadrive.examples.drive_in_single_agent_env        # MetaDrive's own demo (WASD to drive)
@@ -106,8 +106,13 @@ python -m scripts.watch_metadrive_3d runs/metadrive/ckpt.pt   # 3-D window, OUR 
 > ```bash
 > python -m scripts.watch_metadrive_3d - X       # intersection   (S straight, C curve, X intersection,
 > python -m scripts.watch_metadrive_3d - SSSS    # highway         O roundabout, T t-junction, r/R ramp; int N = N random)
-> python -m scripts.run_metadrive X              # train on it ;  in code: get_config(metadrive_map="X", metadrive_traffic_density=0.3)
+> python -m scripts.run_metadrive X 100         # FIX the scene to X across 100 seeds (spawn/traffic vary)
 > ```
+> **Map randomization (general policy):** with **no** map arg, `run_metadrive` trains across a *pool*
+> of procedurally-generated maps (default **100**, `python -m scripts.run_metadrive - 500` for more) so
+> the policy learns to *drive* instead of memorizing one road. `eval_driving` then grades it on a
+> **disjoint held-out** pool (seeds it never trained on) — true generalization, not memorization.
+> Knobs: `cfg.metadrive_num_scenarios` (train pool), `cfg.metadrive_eval_scenarios` (held-out pool).
 
 ## 7b. DonkeyCar / DonkeyGym (rendered 3-D camera sim)  — see docs/DONKEYCAR.md
 ```bash
@@ -200,9 +205,13 @@ Two axes (the world-model way: *prediction* vs *control*). Works on any actor ch
 `runs/reference/ckpt.pt` (IDM-cloned), `runs/gesture_reference/ckpt.pt` (your-style), or an
 RL-trained `runs/metadrive/ckpt.pt`.
 ```bash
-# WATCH it drive (qualitative) -- 3-D window, the trained actor at the wheel (needs a display):
-python -m scripts.watch_metadrive_3d runs/reference/ckpt.pt
-python -m scripts.watch_metadrive_3d runs/reference/ckpt.pt SSSS     # on a highway
+# WATCH it drive (qualitative) -- 3-D window, the trained actor at the wheel (needs a display).
+# Good for screen-recording. On Windows 11: click the window, then Win+Alt+R starts/stops a clip
+# (saved to Videos\Captures). Runs ~2000 steps, auto-resetting at each crash/off-road/arrival.
+python -m scripts.watch_metadrive_3d runs/gesture_reference/ckpt.pt  # YOUR-style model (the "current" one you trained)
+python -m scripts.watch_metadrive_3d runs/reference/ckpt.pt          # the IDM-cloned reference
+python -m scripts.watch_metadrive_3d runs/gesture_reference/ckpt.pt SSSS   # on a highway (cleaner-looking on camera)
+python -m scripts.watch_metadrive_3d                                 # no ckpt = IDM expert drives a clean lap (best demo)
 
 # DRIVING-USABILITY metrics (quantitative) -- route completion %, success, crash + off-road rate,
 # with random + IDM-expert baselines. Forced to MetaDrive, so it works on a "your-style" ckpt too:
@@ -219,6 +228,10 @@ python -m scripts.eval_closed_loop runs/reference/ckpt.pt
 > zero **success** — is *learning but not yet usable* (the documented real-sim-control limit; see
 > `docs/SYSTEM_OVERVIEW.md` §7). `success_rate` needs a long enough `max_episode_steps` to reach the
 > destination — short horizons read 0% even for IDM, so lean on **route completion** there.
+>
+> **Held-out maps:** `eval_driving` prints `held-out seeds A-B` and runs on map seeds that are
+> *disjoint* from the training pool (`run_metadrive` trains on seeds `0…N-1`; eval uses `N…N+M-1`).
+> So a high score here means the policy generalizes to roads it never saw — not that it memorized.
 
 ## 8c. Full script reference — every runnable entry point
 All run from the repo root as `python -m <module>`. `[arg]` = optional; `-` = "skip this positional".
@@ -234,7 +247,7 @@ python -m training.collect                         # collect trajectories into t
 python -m training.train_world_model               # train just the world model (state mode, DummyEnv)
 python -m training.train_behavior                  # single-shot: WM + actor-critic in imagination (the toy)
 python -m training.dreamer_loop                    # the ITERATED Dreamer loop (the real algorithm)
-python -m scripts.run_metadrive [map]              # iterated Dreamer loop on MetaDrive (state mode) -> runs/metadrive/
+python -m scripts.run_metadrive [map] [num_scenarios]   # Dreamer loop across a POOL of random maps (default 100) -> runs/metadrive/
 python -m scripts.drive_from_pixels                # image-mode: train a pixel WM + actor in imagination -> runs/visual/
 python -m training.train_reference                 # IDM-expert reference (WM+BC actor+critic) -> runs/reference/ckpt.pt
 python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR driving; many drives accumulate (runs/sessions/)

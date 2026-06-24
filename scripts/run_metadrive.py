@@ -4,7 +4,13 @@ model in policy-visited states (the fix for the single-shot model-exploitation f
 experiments/010). Headless on CPU, but slow (MetaDrive stepping) -- run it ALONE.
 See docs/METADRIVE.md.
 
-Usage:  python -m scripts.run_metadrive
+Trains across a POOL of procedurally-generated maps (domain randomization, default 100) so the
+policy learns to drive rather than memorize one road; eval_driving then grades it on a disjoint
+held-out map pool. Pass `-` to keep the default random-block map, or a map arg to fix the scene.
+
+Usage:  python -m scripts.run_metadrive            # 100 random maps (seeds 0-99), 3-block geometry
+        python -m scripts.run_metadrive - 500      # bigger pool: 500 maps
+        python -m scripts.run_metadrive SSSS 100   # fix the scene (highway), 100 seeds (traffic varies)
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,14 +26,22 @@ from utils import save_checkpoint
 
 
 def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior_steps=400,
-         out="runs/metadrive/ckpt.pt", road_map=None, traffic_density=0.1):
+         out="runs/metadrive/ckpt.pt", road_map=None, traffic_density=0.1, num_scenarios=100):
     if isinstance(road_map, str) and road_map.isdigit():
         road_map = int(road_map)
+    if road_map is None:
+        road_map = 3                # 3 random blocks -> different road geometry per map seed
+    # TRAIN on a pool of `num_scenarios` maps starting at seed 0 (domain randomization). eval_driving
+    # derives the DISJOINT held-out eval range from this via train_eval_seed_split, so it grades the
+    # policy on maps it never trained on.
     cfg = get_config(env="metadrive", obs_type="state", state_dim=259, action_dim=2,
                      deter_dim=128, stoch_dim=32, hidden_dim=128, seq_len=10, imagine_horizon=15,
                      gamma=0.99, lambda_=0.95, entropy_coef=1e-3, actor_lr=3e-4, critic_lr=3e-4,
                      lr=3e-4, batch_size=16, max_episode_steps=200,
-                     metadrive_map=road_map, metadrive_traffic_density=traffic_density)
+                     metadrive_map=road_map, metadrive_traffic_density=traffic_density,
+                     metadrive_num_scenarios=int(num_scenarios), metadrive_start_seed=0)
+    print(f"training on {num_scenarios} maps (seeds 0-{int(num_scenarios) - 1}), "
+          f"map={road_map} random blocks", flush=True)
     torch.manual_seed(0); np.random.seed(0)
     env = make_env(cfg)                                  # one sim instance, reused throughout
 
@@ -43,4 +57,6 @@ def main(iters=4, seed_steps=1500, collect_per_iter=1000, wm_steps=400, behavior
 
 
 if __name__ == "__main__":
-    main(road_map=sys.argv[1] if len(sys.argv) > 1 else None)
+    rm = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] not in ("-", "none") else None
+    ns = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 100
+    main(road_map=rm, num_scenarios=ns)

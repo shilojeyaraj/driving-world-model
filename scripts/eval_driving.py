@@ -111,8 +111,15 @@ def main(ckpt, episodes=5, road_map=None, with_idm=True):
         road_map = int(road_map)
     if road_map is not None:
         cfg.metadrive_map = road_map
+    # HELD-OUT maps: grade on the eval seed range, which is DISJOINT from the training range the
+    # checkpoint used -> measures generalization (driving roads it never trained on), not memorization.
+    from envs.metadrive_env import train_eval_seed_split
+    _, (eval_start, eval_num) = train_eval_seed_split(int(getattr(cfg, "metadrive_num_scenarios", 1)),
+                                                      int(getattr(cfg, "metadrive_eval_scenarios", 50)))
+    cfg.metadrive_start_seed, cfg.metadrive_num_scenarios = eval_start, eval_num
 
-    print(f"driving-usability eval: {ckpt}  ({episodes} episodes, map={cfg.metadrive_map})", flush=True)
+    print(f"driving-usability eval: {ckpt}  ({episodes} episodes, map={cfg.metadrive_map}, "
+          f"held-out seeds {eval_start}-{eval_start + eval_num - 1})", flush=True)
     actor_recs = _run_episodes(cfg, episodes, _ActorPolicy(cfg, wm, actor))
     print(f"  ACTOR : {_fmt(summarize_driving(actor_recs))}", flush=True)
     rnd = _FixedPolicy(lambda obs: np.random.uniform(-1, 1, cfg.action_dim).astype(np.float32))
