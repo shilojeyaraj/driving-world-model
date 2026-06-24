@@ -9,5 +9,7 @@ pytest
 imageio
 # lpips
 # scikit-image
+# --- progress visualization (optional) ---
+# matplotlib                     # scripts/plot_progress.py -- learning-curve PNG from runs/*/progress.csv
 # --- optional but recommended: experiment tracking ---
 # wandb

@@ -120,13 +120,17 @@ def main(ckpt, episodes=5, road_map=None, with_idm=True):
 
     print(f"driving-usability eval: {ckpt}  ({episodes} episodes, map={cfg.metadrive_map}, "
           f"held-out seeds {eval_start}-{eval_start + eval_num - 1})", flush=True)
-    actor_recs = _run_episodes(cfg, episodes, _ActorPolicy(cfg, wm, actor))
-    print(f"  ACTOR : {_fmt(summarize_driving(actor_recs))}", flush=True)
+    actor_sum = summarize_driving(_run_episodes(cfg, episodes, _ActorPolicy(cfg, wm, actor)))
+    print(f"  ACTOR : {_fmt(actor_sum)}", flush=True)
     rnd = _FixedPolicy(lambda obs: np.random.uniform(-1, 1, cfg.action_dim).astype(np.float32))
-    print(f"  RANDOM: {_fmt(summarize_driving(_run_episodes(cfg, episodes, rnd)))}", flush=True)
+    random_sum = summarize_driving(_run_episodes(cfg, episodes, rnd))
+    print(f"  RANDOM: {_fmt(random_sum)}", flush=True)
+    idm_sum = None
     if with_idm:
         dummy = _FixedPolicy(lambda obs: np.zeros(cfg.action_dim, np.float32))
-        print(f"  IDM   : {_fmt(summarize_driving(_run_episodes(cfg, episodes, dummy, idm=True)))}", flush=True)
+        idm_sum = summarize_driving(_run_episodes(cfg, episodes, dummy, idm=True))
+        print(f"  IDM   : {_fmt(idm_sum)}", flush=True)
+    return {"actor": actor_sum, "random": random_sum, "idm": idm_sum}    # for progress logging
 
 
 if __name__ == "__main__":

@@ -11,6 +11,9 @@ Reuses train_reference's BC machinery (collect_idm / bc_actor / eval_critic) + d
 _train_world_model. Output is the standard {wm, actor, critic, cfg} checkpoint, so eval_driving and
 watch_metadrive_3d work on runs/dagger/ckpt.pt unchanged.
 """
+import os
+import json
+
 import numpy as np
 import torch
 
@@ -100,22 +103,45 @@ def idm_relabel_rollout(cfg, wm, actor, steps, seed=0, buf=None):
     return extend_buffer(buf, obs_l, act_l, rew_l, done_l)
 
 
-def _eval_heldout(out, episodes):
+def _eval_heldout(out, episodes, with_idm=False):
     """Per-iteration progress: route/success/crash on the DISJOINT held-out maps (eval_driving forces
-    them). Best-effort -- a flaky eval must never kill the training run."""
+    them). Returns the {actor, random, idm} summaries (or None on failure). Best-effort -- a flaky
+    eval must never kill the training run. IDM is slow, so it's only run when with_idm (iter 0)."""
     try:
         from scripts.eval_driving import main as eval_main
-        eval_main(ckpt=out, episodes=episodes, with_idm=False)
+        return eval_main(ckpt=out, episodes=episodes, with_idm=with_idm)
     except Exception as e:
         print(f"  (held-out eval skipped: {e!r})", flush=True)
+        return None
+
+
+def _log_progress(it, summaries, run_dir):
+    """Append the iteration's ACTOR metrics to progress.csv (a learning curve), and at iter 0 record
+    the Random/IDM route baselines. Best-effort -- visualization must never kill training.
+    Plot with: python -m scripts.plot_progress"""
+    if not summaries or not summaries.get("actor"):
+        return
+    try:
+        from training.progress_log import append_progress, progress_row
+        append_progress(os.path.join(run_dir, "progress.csv"), progress_row(it, summaries["actor"]))
+        if it == 0:
+            bl = {}
+            if summaries.get("random"):
+                bl["random_route"] = float(summaries["random"]["route_completion"])
+            if summaries.get("idm"):
+                bl["idm_route"] = float(summaries["idm"]["route_completion"])
+            with open(os.path.join(run_dir, "baselines.json"), "w") as f:
+                json.dump(bl, f)
+    except Exception as e:
+        print(f"  (progress log skipped: {e!r})", flush=True)
 
 
 def dagger_train(cfg, iters=3, collect_steps=4000, rollout_steps=2000, wm_steps=1000,
                  bc_steps=1000, critic_steps=1000, out="runs/dagger/ckpt.pt", eval_episodes=5):
     """Iteration 0 = train_reference (clean IDM data -> WM -> BC actor -> critic). Each later iter:
     relabel-rollout the current learner -> aggregate -> retrain WM + actor + critic -> save -> eval."""
-    import os
-    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    run_dir = os.path.dirname(out) or "runs/dagger"
+    os.makedirs(run_dir, exist_ok=True)
     buf = collect_idm(cfg, collect_steps)          # iter-0 expert demonstrations
     buf._flush()                                   # close trailing run so relabel data can't bleed in
     buf.capacity = max(buf.capacity, dagger_capacity(collect_steps, iters, rollout_steps, cfg.seq_len))
@@ -135,5 +161,8 @@ def dagger_train(cfg, iters=3, collect_steps=4000, rollout_steps=2000, wm_steps=
         print(f"iter {it}: recon={float(wm_m.get('recon', 0)):.3f} bc_loss={bc_loss:.4f} "
               f"critic_loss={critic_loss:.4f} -> saved {out}", flush=True)
         if eval_episodes > 0:
-            _eval_heldout(out, eval_episodes)
+            sums = _eval_heldout(out, eval_episodes, with_idm=(it == 0))   # IDM baseline once, at iter 0
+            _log_progress(it, sums, run_dir)                               # -> progress.csv (+ baselines.json)
+    print(f"done. plot the learning curve:  python -m scripts.plot_progress "
+          f"{os.path.join(run_dir, 'progress.csv')}", flush=True)
     return wm, actor, critic
