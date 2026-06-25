@@ -6,7 +6,44 @@ the WM-latent actor goes off-road 100%, the under-trained WM latent is the bottl
 import numpy as np
 import torch
 
-from training.direct_bc import DirectPolicy, train_direct_bc, save_direct, load_direct
+from training.direct_bc import (DirectPolicy, train_direct_bc, save_direct, load_direct,
+                                DirectPolicyAux, train_direct_bc_aux)
+
+
+def test_direct_policy_aux_action_and_reward_heads():
+    pol = DirectPolicyAux(obs_dim=10, action_dim=2, hidden=32)
+    obs = torch.randn(4, 10)
+    a = pol(obs)
+    assert a.shape == (4, 2) and a.abs().max().item() <= 1.0     # action head: bounded, same interface
+    a2, r = pol.action_and_reward(obs)
+    assert a2.shape == (4, 2) and r.shape == (4,)                # + a progress (reward) head
+
+
+def test_train_direct_bc_aux_reduces_both_losses():
+    """Joint objective: action L1 + aux MSE(predicted reward). Both should drop on learnable targets."""
+    torch.manual_seed(0); np.random.seed(0)
+    n, d = 512, 6
+    obs = np.random.randn(n, d).astype(np.float32)
+    W = np.random.randn(d, 2).astype(np.float32)
+    act = np.tanh(obs @ W).astype(np.float32)
+    rew = (0.5 * obs[:, 0]).astype(np.float32)                   # a learnable progress signal
+    pol = DirectPolicyAux(d, 2, hidden=64)
+    first = train_direct_bc_aux(pol, obs, act, rew, steps=1, lr=3e-3, aux_weight=0.5)
+    last = train_direct_bc_aux(pol, obs, act, rew, steps=400, lr=3e-3, aux_weight=0.5)
+    assert last["action"] < first["action"]
+    assert last["aux"] < first["aux"]
+
+
+def test_save_load_aux_roundtrip(tmp_path):
+    """The aux policy must save/load as itself (so watch/eval reload the exact action function)."""
+    pol = DirectPolicyAux(10, 2, hidden=32)
+    x = torch.randn(4, 10)
+    before = pol(x).detach()
+    p = str(tmp_path / "aux.pt")
+    save_direct(p, pol, 10, 2)
+    loaded = load_direct(p)
+    assert isinstance(loaded, DirectPolicyAux)
+    assert torch.allclose(before, loaded(x).detach(), atol=1e-6)
 
 
 def test_train_direct_policy_cli_knobs():

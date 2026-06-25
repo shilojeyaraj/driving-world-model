@@ -23,14 +23,19 @@ from eval.closed_loop import summarize_driving, summarize_recovery
 from envs.metadrive_env import train_eval_seed_split
 from training.train_reference import collect_idm
 from training.recovery import collect_idm_perturbed
-from training.direct_bc import DirectPolicy, train_direct_bc, save_direct, flatten_buffer
+from training.direct_bc import (DirectPolicy, DirectPolicyAux, train_direct_bc, train_direct_bc_aux,
+                                save_direct, flatten_buffer)
+
+
+def _rewards(buf):
+    return np.concatenate([e["reward"] for e in buf._episodes]).astype(np.float32)
 
 
 def main(clean_steps=8000, recovery_steps=8000, direct_steps=8000, num_scenarios=50, episodes=10,
-         perturb_prob=0.08, gamma=0.2, out="runs/direct_bc/policy.pt"):
+         perturb_prob=0.08, gamma=0.2, aux_weight=0.0, out="runs/direct_bc/policy.pt"):
     cfg = build_cfg(num_scenarios=num_scenarios)
     print(f"train direct policy: clean {clean_steps} + recovery {recovery_steps} ({num_scenarios} maps), "
-          f"perturb p={perturb_prob} gamma={gamma} -> {out}", flush=True)
+          f"perturb p={perturb_prob} gamma={gamma} aux_weight={aux_weight} -> {out}", flush=True)
 
     clean = collect_idm(cfg, clean_steps); clean._flush()
     rec = collect_idm_perturbed(cfg, recovery_steps, perturb_prob=perturb_prob, gamma=gamma)
@@ -39,10 +44,16 @@ def main(clean_steps=8000, recovery_steps=8000, direct_steps=8000, num_scenarios
     obs, act = np.concatenate([co, ro]), np.concatenate([ca, ra])
     print(f"training on {len(obs)} pairs (clean {len(co)} + recovery {len(ro)})", flush=True)
 
-    policy = DirectPolicy(cfg.state_dim, cfg.action_dim)
-    loss = train_direct_bc(policy, obs, act, direct_steps, device=cfg.device)
+    if aux_weight > 0:                                   # roadmap D: + auxiliary progress (reward) head
+        rew = np.concatenate([_rewards(clean), _rewards(rec)])
+        policy = DirectPolicyAux(cfg.state_dim, cfg.action_dim)
+        losses = train_direct_bc_aux(policy, obs, act, rew, direct_steps, aux_weight=aux_weight, device=cfg.device)
+        print(f"trained AUX (action {losses['action']:.4f} aux {losses['aux']:.4f}) -> {out}", flush=True)
+    else:
+        policy = DirectPolicy(cfg.state_dim, cfg.action_dim)
+        loss = train_direct_bc(policy, obs, act, direct_steps, device=cfg.device)
+        print(f"trained (bc_loss {loss:.4f}) -> {out}", flush=True)
     save_direct(out, policy, cfg.state_dim, cfg.action_dim)
-    print(f"trained (bc_loss {loss:.4f}) -> {out}", flush=True)
 
     # full held-out eval: driving metrics + targeted recovery (both on the same fixed seeds)
     _, (eval_start, eval_num) = train_eval_seed_split(int(cfg.metadrive_num_scenarios),
@@ -58,7 +69,8 @@ def main(clean_steps=8000, recovery_steps=8000, direct_steps=8000, num_scenarios
     # log this run as a milestone so the accuracy-over-the-project chart grows (scripts.plot_milestones)
     try:
         from training.progress_log import append_milestone
-        append_milestone("runs/milestones.csv", f"direct+rec {(clean_steps + recovery_steps) // 1000}k", drive)
+        tag = f"direct+rec{'+aux' if aux_weight > 0 else ''} {(clean_steps + recovery_steps) // 1000}k"
+        append_milestone("runs/milestones.csv", tag, drive)
     except Exception as e:
         print(f"  (milestone log skipped: {e!r})", flush=True)
     print(f"watch it:  python -m scripts.watch_direct_bc {out}", flush=True)
@@ -73,6 +85,8 @@ def parse_args(argv):
     p.add_argument("--episodes", type=int, default=10)
     p.add_argument("--perturb-prob", dest="perturb_prob", type=float, default=0.08)
     p.add_argument("--gamma", type=float, default=0.2)
+    p.add_argument("--aux-weight", dest="aux_weight", type=float, default=0.0,
+                   help="roadmap D: weight on the auxiliary progress (reward) head; 0 = plain direct-BC")
     p.add_argument("--out", default="runs/direct_bc/policy.pt")
     return p.parse_args(argv)
 
@@ -81,4 +95,4 @@ if __name__ == "__main__":
     a = parse_args(sys.argv[1:])
     main(clean_steps=a.clean_steps, recovery_steps=a.recovery_steps, direct_steps=a.direct_steps,
          num_scenarios=a.num_scenarios, episodes=a.episodes, perturb_prob=a.perturb_prob,
-         gamma=a.gamma, out=a.out)
+         gamma=a.gamma, aux_weight=a.aux_weight, out=a.out)

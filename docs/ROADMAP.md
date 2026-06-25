@@ -56,9 +56,14 @@ but **recovery_rate 40% → 70%** — more data made it *recover* much better, y
 capped at ~39% by the residual off-road. **Takeaway: more demos alone won't break 39%** — the next
 lever is D (explicit off-road/progress signal), not scale.
 
-### D. Auxiliary off-road / progress losses (ChauffeurNet's other half)
-Add explicit terms beyond cloning: penalize actions that lead off-road, reward progress. Needs the
-perturbation data (A) for signal.
+### D. Auxiliary progress head  ← **built; experiment pending**
+ChauffeurNet's "more than cloning" idea, adapted to our constraints. We have **no differentiable sim**
+(direct policy bypasses the WM), and off-road *classification* labels are too sparse (~99% on-road),
+and reward-weighted BC would downweight our recovery examples — so the implementable form is
+**Codevilla's auxiliary progress head**: a shared trunk predicts the per-step **reward** alongside the
+action (`DirectPolicyAux`, `train_direct_bc_aux`), forcing the representation to encode lane/progress
+quality. `train_direct_policy --aux-weight 0.5`. Honest expectation: a regularizer (modest gain), not
+a hard off-road penalty. Compare aux vs no-aux at scale (deterministic eval) — running.
 
 ## Tier 3 — diminishing returns / more complex
 ### E. Advanced objectives
