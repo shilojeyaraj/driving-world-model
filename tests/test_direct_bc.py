@@ -53,6 +53,9 @@ def test_train_direct_policy_cli_knobs():
     assert a.perturb_prob == 0.1 and a.gamma == 0.25
     b = parse_args([])
     assert b.clean_steps == 8000 and b.perturb_prob == 0.08      # defaults: scaled demos + tuned perturbation
+    assert b.boost_scene is None                                 # boost off by default
+    c = parse_args(["--boost-scene", "O", "--boost-steps", "5000", "--aux-weight", "0.5"])
+    assert c.boost_scene == "O" and c.boost_steps == 5000 and c.aux_weight == 0.5
 
 
 def test_flatten_buffer_concatenates_episodes():
