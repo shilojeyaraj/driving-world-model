@@ -1,15 +1,14 @@
-"""Watch the DIRECT obs->action BC policy drive in MetaDrive's 3-D window (no world model in the
-loop). This is the policy that scored route ~22% in the ablation -- the best learned driver so far.
+"""Watch the DIRECT obs->action BC policy drive in MetaDrive's 3-D window (no world model).
 
-First run trains it (collect IDM -> direct BC) and saves to runs/direct_bc/policy.pt; later runs load
-that instantly. Needs a display (your laptop). Drives with REAL terminations, so you'll see it commit
-to driving and then drift/crash (off-road ~90%) -- the recovery-data problem we'd fix next.
+Usage:  python -m scripts.watch_direct_bc runs/direct_bc/policy_boosted.pt O   # roundabout
+        python -m scripts.watch_direct_bc runs/direct_bc/policy_boosted.pt O --small  # smoother recording
+        python -m scripts.watch_direct_bc - SSSS                                # IDM on highway
+        python -m scripts.watch_direct_bc runs/direct_bc/policy.pt             # default policy
 
-Usage:  python -m scripts.watch_direct_bc                 # train (first time) or load, then watch
-        python -m scripts.watch_direct_bc - SSSS          # watch on a highway scene
-        python -m scripts.watch_direct_bc runs/direct_bc/policy.pt   # explicit checkpoint
+For recording (Win+Alt+R): pass --small to drop to 640x480 and strip traffic -- the lighter
+render gives a steadier framerate. Low-graphics mode (shadows/skybox off) is always on.
 """
-import os, sys
+import os, sys, argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
@@ -17,12 +16,13 @@ import torch
 
 
 def main(ckpt="runs/direct_bc/policy.pt", road_map=None, steps=2000, num_scenarios=50,
-         collect_steps=4000, direct_steps=4000, traffic_density=0.1):
+         collect_steps=4000, direct_steps=4000, traffic_density=0.1, window_size=(800, 600)):
     from scripts.dagger import build_cfg
     from training.direct_bc import DirectPolicy, train_direct_bc, save_direct, load_direct
     if isinstance(road_map, str) and road_map.isdigit():
         road_map = int(road_map)
     cfg = build_cfg(num_scenarios=num_scenarios, road_map=road_map, traffic_density=traffic_density)
+    cfg.metadrive_window_size = window_size
 
     if os.path.exists(ckpt):
         policy = load_direct(ckpt)
@@ -43,12 +43,13 @@ def main(ckpt="runs/direct_bc/policy.pt", road_map=None, steps=2000, num_scenari
     cfg.metadrive_render = True
     from metadrive.envs import MetaDriveEnv
     from envs.metadrive_env import adapt_obs, metadrive_config, disable_shadows
+    print(f"window {window_size[0]}x{window_size[1]}, traffic {traffic_density}, map={road_map or 'random'}", flush=True)
     env = MetaDriveEnv(metadrive_config(cfg))
     obs = adapt_obs(env.reset()[0], "state")
     if getattr(cfg, "metadrive_low_graphics", True):
-        disable_shadows(env)                          # GPU win on a weak card; no-op if unavailable
+        disable_shadows(env)
     policy.eval()
-    print("watching direct-BC drive -- close the window or Ctrl+C to stop.", flush=True)
+    print("watching -- close the window or Ctrl+C to stop.", flush=True)
     try:
         for _ in range(steps):
             with torch.no_grad():
@@ -63,7 +64,20 @@ def main(ckpt="runs/direct_bc/policy.pt", road_map=None, steps=2000, num_scenari
 
 
 if __name__ == "__main__":
-    a = [x for x in sys.argv[1:]]
-    ck = a[0] if len(a) > 0 and a[0] not in ("-", "none") else "runs/direct_bc/policy.pt"
-    rm = a[1] if len(a) > 1 else None
-    main(ckpt=ck, road_map=rm)
+    p = argparse.ArgumentParser()
+    p.add_argument("ckpt", nargs="?", default="runs/direct_bc/policy.pt",
+                   help="policy checkpoint (- or omit for default)")
+    p.add_argument("map", nargs="?", default=None,
+                   help="road map: O roundabout, SSSS highway, X intersection, etc.")
+    p.add_argument("--small", action="store_true",
+                   help="640x480 window + no traffic: steadier framerate for screen recording")
+    p.add_argument("--window", nargs=2, type=int, default=None, metavar=("W", "H"),
+                   help="explicit window size, e.g. --window 1024 768")
+    p.add_argument("--traffic", type=float, default=None,
+                   help="traffic density (0.0 = empty, default 0.1)")
+    p.add_argument("--steps", type=int, default=2000)
+    a = p.parse_args()
+    ck = a.ckpt if a.ckpt not in ("-", "none") else "runs/direct_bc/policy.pt"
+    win = tuple(a.window) if a.window else ((640, 480) if a.small else (800, 600))
+    traffic = a.traffic if a.traffic is not None else (0.0 if a.small else 0.1)
+    main(ckpt=ck, road_map=a.map, steps=a.steps, window_size=win, traffic_density=traffic)
