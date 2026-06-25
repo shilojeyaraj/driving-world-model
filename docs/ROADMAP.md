@@ -73,6 +73,22 @@ action (`DirectPolicyAux`, `train_direct_bc_aux`), forcing the representation to
 quality. `train_direct_policy --aux-weight 0.5`. Honest expectation: a regularizer (modest gain), not
 a hard off-road penalty. Compare aux vs no-aux at scale (deterministic eval) — running.
 
+## KEY FINDING — per-scene breakdown reframes the ceiling
+`scripts/eval_by_scene` on the best policy (held-out, n=10/scene):
+
+| geometry | route | success | crash | off-road |
+|---|---|---|---|---|
+| straight | **96%** | 100% | 0% | 0% |
+| curve | **82%** | 40% | 0% | 10% |
+| intersection | **84%** | 70% | 30% | 0% |
+| roundabout | **42%** | 0% | 40% | 60% |
+
+The aggregate route 39% was **masking real competence**: the policy drives straights/curves/
+intersections near-IDM (route 82–96%, success up to 100%); the off-road 30% is almost entirely
+**roundabouts** (off-road 60%, success 0% there). So the "ceiling" is one failing geometry, not a
+global limit. **Next lever (cheap, precisely located): target ROUNDABOUTS** — mix in roundabout clean
++ recovery data (`road_map="O"`) and retrain, then re-run `eval_by_scene`. Chart: `runs/direct_bc/by_scene.png`.
+
 ## Tier 3 — diminishing returns / more complex
 ### E. Advanced objectives
 - Closed-loop / multi-step rollout loss (penalize *compounding* error, not per-step MSE).
