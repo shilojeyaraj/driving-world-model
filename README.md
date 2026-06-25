@@ -49,6 +49,12 @@ state mode; pixels/real-sims scale up to a GPU.
   **train a "your-style" reference** on a recorded session so it critiques you against your *own*
   driving. `control/gesture.py`, `eval/feedback.py`, `scripts/drive_gesture.py`,
   `scripts/train_on_gesture.py`, `docs/superpowers/specs/2026-06-15-gesture-feedback-design.md`.
+- **Direct obs→action policy (route 39%+).** A controlled ablation (`scripts/ablate_direct_bc`)
+  showed the WM latent loses lane/heading signal. A plain MLP cloning directly from the 259-dim
+  state bypasses the bottleneck. Recovery data (DART-style perturbations + IDM relabeling, roadmap
+  A), scene-targeted training (`--boost-scene O` for roundabouts, roadmap C+), and **direct-policy
+  DAgger** (`scripts/direct_dagger.py`) iteratively fix distribution shift. `training/direct_bc.py`,
+  `training/recovery.py`, `training/direct_dagger.py`, `docs/ROADMAP.md`.
 - **Full test suite** (fast unit/contract + slow training gates), built test-first throughout.
 
 ## Results & honest limitations
@@ -57,12 +63,16 @@ state mode; pixels/real-sims scale up to a GPU.
   a policy trained *only in imagination* drives near-optimally (**return ≈ 95 vs ≈ −51 random**).
 - ✅ **Pixels:** recon → ~0; the dream video tracks reality (**per-pixel MSE ≈ 0.0002** at 64×64).
 - ✅ **Real-sim learning:** MetaDrive world model trains on real lidar (**recon 245 → 0.17**).
-- ⚠️ **Real-sim control is unsolved here:** the policy exploits the model / collapses into a tanh
-  corner — the documented model-based RL failure mode. Fixing it needs DreamerV3-grade stabilizers
-  (two-hot heads, EMA return normalization) + GPU-scale compute. `experiments/010–012`.
+- ✅ **Real-sim control — direct policy:** a controlled ablation revealed the WM latent loses
+  lane/heading signal (bc_loss 2.06 WM-based vs 0.05 direct). A plain MLP cloning **directly from
+  the 259-dim state → action** achieves **route 39%** (vs 2% WM-based, 2% random); with recovery
+  data + roundabout targeting, **64% route on curved geometry, 96% on straights**.
+- ⚠️ **WM-based control:** the model-based RL actor exploits model errors / collapses into a tanh
+  corner — the documented failure mode. Fixing it needs DreamerV3-grade stabilizers + GPU-scale
+  compute. `experiments/010–012`. The WM is still used for gesture feedback/critique (see below).
 
-The honesty is the point: the repo maps exactly where a simplified, from-scratch Dreamer succeeds
-and where the production tricks become necessary.
+The honest finding is the point: the ablation maps *exactly* where the WM latent is the bottleneck
+and where bypassing it is the right call — a direct engineering diagnosis, not a cop-out.
 
 ## Architecture (swappable slots)
 | Slot | File | Options |
@@ -89,6 +99,10 @@ python -m scripts.eval_closed_loop runs/behavior/ckpt.pt
 
 python -m scripts.record_metadrive      # SEE a car drive (rendered top-down) -> runs/metadrive_drive.gif
 python -m scripts.watch_metadrive_3d    # SEE it in 3-D (rendered chase-camera window; needs a display)
+
+# best trained policy (direct BC, route 41% aggregate, 64% roundabout):
+python -m scripts.watch_direct_bc runs/direct_bc/policy_boosted.pt
+python -m scripts.eval_by_scene runs/direct_bc/policy_boosted.pt    # per-geometry breakdown
 ```
 **Full command list for every feature is in `docs/RUNNING.md`** (env vars needed: none).
 
