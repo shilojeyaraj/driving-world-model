@@ -15,8 +15,6 @@
 \usepackage{microtype}
 \usepackage{natbib}
 
-\graphicspath{{../runs/}}   % all image paths relative to runs/
-
 % ---------------------------------------------------------------------------
 \title{Direct Imitation Learning for Autonomous Driving:\\
 When the World-Model Latent Loses the Lane}
@@ -314,7 +312,7 @@ action-relevant signal \citep{hafner2019rssm}.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{milestones.png}
+\includegraphics[width=\linewidth]{milestones}
 \caption{
   Full project arc: route completion across all milestones on held-out maps.
   The RSSM-BC world-model policy (2\%) is indistinguishable from a random
@@ -406,7 +404,7 @@ in the clean training data.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{direct_bc/by_scene.png}
+\includegraphics[width=0.85\linewidth]{by_scene}
 \caption{
   Per-geometry route completion (blue) and off-road rate (red) for
   \texttt{policy\_boosted.pt} on held-out maps ($n{=}10$ per geometry).
@@ -522,7 +520,7 @@ Iteration & Route \% & bc\_loss & Note \\
 \begin{figure}[t]
 \centering
 \begin{subfigure}[b]{0.52\linewidth}
-  \includegraphics[width=\linewidth]{dagger/progress.png}
+  \includegraphics[width=\linewidth]{dagger_progress}
   \caption{
     WM-based DAgger (RSSM latent). Route completion climbs slowly
     (1\%$\to$13\%) but plateaus far below the direct policy, confirming
@@ -532,7 +530,7 @@ Iteration & Route \% & bc\_loss & Note \\
 \end{subfigure}
 \hfill
 \begin{subfigure}[b]{0.45\linewidth}
-  \includegraphics[width=\linewidth]{direct_bc/by_scene.png}
+  \includegraphics[width=\linewidth]{by_scene}
   \caption{
     Best direct policy per geometry after scene-targeted augmentation.
     Three of four geometry types are near-IDM; roundabout is the sole
