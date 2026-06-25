@@ -15,6 +15,8 @@
 \usepackage{microtype}
 \usepackage{natbib}
 
+\graphicspath{{../runs/}}   % all image paths relative to runs/
+
 % ---------------------------------------------------------------------------
 \title{Direct Imitation Learning for Autonomous Driving:\\
 When the World-Model Latent Loses the Lane}
@@ -310,6 +312,21 @@ than to plan actions from. This is a known failure mode of reconstruction-
 based world models when the prediction task does not require preserving the
 action-relevant signal \citep{hafner2019rssm}.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{milestones.png}
+\caption{
+  Full project arc: route completion across all milestones on held-out maps.
+  The RSSM-BC world-model policy (2\%) is indistinguishable from a random
+  agent; switching to direct obs$\to$action cloning immediately lifts route
+  completion to 24\%. Recovery data (DART) raises it to 39\%, scene-targeted
+  augmentation (roundabout boost, right cluster) lifts the roundabout geometry
+  to 64\%, and DAgger matches but does not exceed the BC+boost baseline.
+  IDM (99\%, green) is the rule-based expert upper bound.
+}
+\label{fig:milestones}
+\end{figure}
+
 \subsection{Recovery Data Eliminates Crashes}
 
 \begin{table}[t]
@@ -387,6 +404,20 @@ before failing at the curved entry arc, where the required steering angle
 is sharp and the state distribution is qualitatively different from anything
 in the clean training data.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{direct_bc/by_scene.png}
+\caption{
+  Per-geometry route completion (blue) and off-road rate (red) for
+  \texttt{policy\_boosted.pt} on held-out maps ($n{=}10$ per geometry).
+  Straight, curve, and intersection reach 84--96\% route completion with
+  near-zero off-road rate. Roundabout (O) is the sole failure geometry:
+  64\% route completion, 30\% off-road, after scene-targeted augmentation
+  (down from 42\% route, 60\% off-road without it).
+}
+\label{fig:byscene}
+\end{figure}
+
 \subsection{Scene-Targeted Augmentation Raises Roundabout Performance by 22pp}
 
 \begin{table}[t]
@@ -427,18 +458,6 @@ Qualitatively, the boosted policy successfully navigates the roundabout entry
 arc in the majority of episodes, with remaining failures concentrated at
 tight mid-roundabout turns where the required steering exceeds the training
 data coverage even with augmentation.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.85\linewidth]{../runs/direct_bc/by_scene.png}
-\caption{
-  Per-geometry route completion and off-road rate for
-  \texttt{policy\_boosted.pt} on held-out maps. Straight/curve/intersection
-  are near-IDM level; roundabout is the residual failure mode, reduced from
-  60\% to 30\% off-road by scene-targeted augmentation.
-}
-\label{fig:byscene}
-\end{figure}
 
 \subsection{DAgger Matches but Does Not Exceed Augmented BC}
 
@@ -502,16 +521,33 @@ Iteration & Route \% & bc\_loss & Note \\
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{../runs/milestones.png}
+\begin{subfigure}[b]{0.52\linewidth}
+  \includegraphics[width=\linewidth]{dagger/progress.png}
+  \caption{
+    WM-based DAgger (RSSM latent). Route completion climbs slowly
+    (1\%$\to$13\%) but plateaus far below the direct policy, confirming
+    the latent is the hard ceiling regardless of on-policy data volume.
+  }
+  \label{fig:wmdagger}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.45\linewidth}
+  \includegraphics[width=\linewidth]{direct_bc/by_scene.png}
+  \caption{
+    Best direct policy per geometry after scene-targeted augmentation.
+    Three of four geometry types are near-IDM; roundabout is the sole
+    residual failure mode.
+  }
+  \label{fig:byscene_dagger}
+\end{subfigure}
 \caption{
-  Project arc: route completion across all milestones from random baseline
-  through DAgger. The world-model latent bottleneck (2\%) is bypassed by
-  direct BC (24\%), which is improved via recovery data (39\%) and
-  scene-targeted augmentation (64\% on roundabouts). DAgger matches the
-  augmented baseline at iteration 1 but regresses by iteration 3 due to
-  dataset heterogeneity.
+  Left: WM DAgger iterates but plateaus at 13\%, confirming the world-model
+  latent (not on-policy data volume) is the binding constraint.
+  Right: direct policy geometry breakdown for reference --- the gap between
+  WM DAgger (13\%) and direct BC+boost (41\% aggregate, 64\% roundabout)
+  is entirely attributable to representation quality.
 }
-\label{fig:milestones}
+\label{fig:dagger_comparison}
 \end{figure}
 
 % ---------------------------------------------------------------------------
