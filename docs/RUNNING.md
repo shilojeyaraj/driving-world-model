@@ -301,6 +301,7 @@ python -m scripts.ablate_direct_bc [collect] [maps] [eps]   # latent-BC vs direc
 python -m scripts.recovery_bc [clean] [recov] [maps] [eps]  # clean vs clean+recovery direct-BC -> runs/direct_bc/policy_recovery.pt
 python -m scripts.watch_direct_bc [policy.pt] [map]         # WATCH a direct policy drive in 3-D
 python -m scripts.eval_recovery [policy.pt] [eps] [psteps]  # targeted recovery metric (forced off-center start)
+python -m scripts.eval_by_scene [policy.pt] [eps] [SCXO]    # per-geometry breakdown (where it goes off-road) -> runs/direct_bc/by_scene.png
 
 # --- evaluate a trained policy (see 8b) ---
 python -m scripts.eval_driving <ckpt> [eps] [map] [noidm]   # route/success/crash vs random + IDM (forced MetaDrive, fixed seeds)

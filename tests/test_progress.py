@@ -78,3 +78,15 @@ def test_plot_milestones_writes_png(tmp_path):
     out = str(tmp_path / "milestones.png")
     plot_main(milestones=mc, out=out)
     assert os.path.exists(out) and os.path.getsize(out) > 0
+
+
+def test_plot_scene_breakdown_writes_png(tmp_path):
+    """Per-scene breakdown chart: route + off-road per geometry type, to see WHERE the policy fails."""
+    pytest.importorskip("matplotlib")
+    from scripts.eval_by_scene import plot_scene_breakdown
+    results = [("S", {"route_completion": 0.80, "off_road_rate": 0.10}),
+               ("C", {"route_completion": 0.40, "off_road_rate": 0.50}),
+               ("X", {"route_completion": 0.20, "off_road_rate": 0.70})]
+    out = str(tmp_path / "by_scene.png")
+    plot_scene_breakdown(results, out)
+    assert os.path.exists(out) and os.path.getsize(out) > 0
