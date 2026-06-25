@@ -86,10 +86,66 @@ a hard off-road penalty. Compare aux vs no-aux at scale (deterministic eval) —
 The aggregate route 39% was **masking real competence**: the policy drives straights/curves/
 intersections near-IDM (route 82–96%, success up to 100%); the off-road 30% is almost entirely
 **roundabouts** (off-road 60%, success 0% there). So the "ceiling" is one failing geometry, not a
-global limit. **Next lever (cheap, precisely located): target ROUNDABOUTS** — mix in roundabout clean
-+ recovery data (`road_map="O"`) and retrain, then re-run `eval_by_scene`. Chart: `runs/direct_bc/by_scene.png`.
+global limit.
 
-## Tier 3 — diminishing returns / more complex
+### Roundabout boost — `train_direct_policy --boost-scene O`  ← ✅ **DONE — works**
+`runs/direct_bc/policy_boosted.pt` (milestone `direct+rec+O 16k`, aggregate route 41%):
+
+| geometry | route | off-road |
+|---|---|---|
+| straight | **96%** | 0% |
+| curve | **87%** (+5pp) | 0% |
+| intersection | **84%** | 0% |
+| roundabout | **64%** (+22pp) | 30% (↓30pp) |
+
+Mixed in 4k+4k extra roundabout clean+recovery demos. Roundabout route 42% → 64%, off-road halved
+60% → 30%. Curves improved too (82% → 87%). Aggregate is 41% (only 2pp gain — eval uses mixed 3-block
+maps) but the per-scene win is real and large. Chart: `runs/direct_bc/by_scene.png`.
+
+## Tier 3 — next levers
+### F. Direct-policy DAgger — `scripts/direct_dagger.py`  ← ✅ **DONE — tied baseline, didn't beat it**
+**Result (3 iters, boost=O, rollout 2k/iter, held-out n=5):**
+
+| iter | route | off-road | bc_loss | note |
+|---|---|---|---|---|
+| 0 (BC+rec+boost) | 38% | 20% | 0.043 | strong baseline |
+| 1 (+2k rollout) | **41%** ← BEST | 20% | 0.057 | tied policy_boosted.pt |
+| 2 (+2k more) | 39% | 20% | 0.150 | loss rising |
+| 3 (+2k more) | 35% | 40% | 0.316 | regression |
+
+Per-scene breakdown of iter-1 best vs `policy_boosted.pt`:
+
+| geometry | direct-DAgger iter 1 | policy_boosted (BC+boost) | Δ |
+|---|---|---|---|
+| straight | 96% | 96% | = |
+| curve | **92%** | 87% | +5pp ✅ |
+| intersection | 72% | 84% | −12pp (60% crash, high variance) |
+| roundabout | 56% | **64%** | −8pp ❌ |
+
+DAgger improved curves but hurt roundabouts — the rollout failure states at roundabouts confused
+the policy by mixing diverse IDM relabels with the clean roundabout boost data. **`policy_boosted.pt`
+remains the best overall model.** Direct DAgger matched the BC+boost baseline (41%) at iter 1 but then **regressed**. The bc_loss increase
+(0.04 → 0.32) reveals why: IDM's relabeled actions at the policy's failure states are high-variance
+and hard to fit alongside the clean training data — the growing heterogeneous dataset makes
+optimization harder, not easier. **Takeaway:** with 2k rollout steps the signal-to-noise is too
+low; the clean+recovery+boost data is already near-optimal for this CPU budget. The perturbation
+recovery (roadmap A) was effectively doing the same thing more stably. Best: `runs/direct_dagger/policy_best.pt`.
+
+### G. WM-based DAgger — `scripts/dagger.py`  ← ✅ **DONE — confirms WM latent is the ceiling**
+**Result (3 iters, 2k rollout/iter, held-out n=5):**
+
+| iter | route | bc_loss | note |
+|---|---|---|---|
+| 0 | 1% | 0.145 | WM-BC baseline |
+| 1 | 2% | 0.057 | fitting better |
+| 2 | 11% | 0.054 | improvement |
+| 3 | **13%** ← BEST | 0.035 | plateau |
+
+DAgger iterates (1% → 2% → 11% → 13%) and bc_loss drops, so the WM *is* learning to fit IDM
+better in latent space. But 13% vs the direct policy's 41% confirms the WM latent is the
+hard ceiling at this compute scale — the latent loses lane/heading signal regardless of how
+many recovery states we show it. Best: `runs/dagger/ckpt_best.pt`.
+
 ### E. Advanced objectives
 - Closed-loop / multi-step rollout loss (penalize *compounding* error, not per-step MSE).
 - Action-distribution head (mixture/quantile/diffusion) for a multimodal expert (pass left vs right).

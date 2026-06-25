@@ -299,7 +299,41 @@ Checkpoints: `utils.save_checkpoint(path, wm, actor, critic, cfg)` /
 
 ---
 
-## 10. What v1 deliberately leaves out (designed-for)
+## 10. The direct-policy path — when the WM latent is the bottleneck
+
+The WM architecture above is the *predictive* system. For *control* on MetaDrive, a controlled
+ablation (`scripts/ablate_direct_bc`) revealed the WM latent loses lane/heading signal:
+
+| policy | bc_loss | route | verdict |
+|---|---|---|---|
+| LATENT-BC (WM → RSSM → bc_actor) | 2.06 | 2% | couldn't fit the expert in latent space |
+| DIRECT-BC (obs(259) → MLP → action) | 0.05 | 22% | fits easily; raw obs encodes lane directly |
+| RANDOM | — | 2% | baseline |
+
+The WM's under-training loses lane/heading in the latent `z`, so the bc_actor can't clone IDM.
+The 259-dim state (relative lidar + nav heading + ego velocity) encodes lane position directly, so a
+plain MLP clone works. The fix is to **bypass the WM for control**.
+
+**Direct policy architecture.** `training/direct_bc.py:DirectPolicy`: a 3-layer MLP
+`obs(259) → 256 → 256 → action(2)` with SiLU activations and tanh output. Stateless (no RSSM).
+Trained with L1 behavioral cloning (Codevilla 2019: better-correlated with driving than MSE).
+
+**Fixing distribution shift.** The plain clone hits 22% route because it only sees expert states —
+it has no recovery. Three levers:
+1. **Recovery data (DART):** drive with IDM + triangular steering perturbation; record IDM's clean
+   action at each drifted state. Adds off-center coverage. `training/recovery.py`. Route 22% → 39%.
+2. **Scene targeting:** `--boost-scene O` mixes extra roundabout demos. Roundabout route 42% → 64%.
+3. **Direct-policy DAgger:** roll out the *current* direct policy (not IDM); IDM relabels each
+   visited state. Visits the learner's actual failure states — theoretically optimal covariate-shift
+   fix. `training/direct_dagger.py`, `scripts/direct_dagger.py`.
+
+**The WM still matters.** For *prediction, critique, and gesture feedback* the WM is the right
+tool — it can imagine the future and judge any controller. For *control on a CPU*, the direct
+policy is the right call. Both coexist: the WM trains and critiques; the direct policy drives.
+
+---
+
+## 11. What v1 deliberately leaves out (designed-for)
 
 Image/pixel mode on GPU (CNN/transposed-CNN paths stubbed with explicit "later phase" errors),
 MetaDrive, and the Transformer/Mamba **dynamics ablation** (the `img_step`/`obs_step` interface

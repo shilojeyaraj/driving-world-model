@@ -264,16 +264,36 @@ python -m scripts.plot_progress                           # learning curve PNG (
 > skill (and can *regress* if the learner drifts far off-road), so the **best** round may not be the
 > last — that's why `ckpt_best.pt` exists.
 
-## 8e. Progress visualization — the learning curve
+## 8e. Direct-policy DAgger — the direct path with iterative recovery
+Unlike the WM-based DAgger (§8d), this rolls out the **current DirectPolicy** (no RSSM) to collect
+its actual failure states, relabels with IDM, and retrains. Combines the direct policy's proven
+state encoding with DAgger's theoretically optimal covariate-shift fix.
+```bash
+python -m scripts.direct_dagger                               # 3 rounds, defaults (8k+8k baseline)
+python -m scripts.direct_dagger --boost-scene O               # + extra roundabout data at iter 0
+python -m scripts.direct_dagger --iters 5 --rollout-steps 3000
+python -m scripts.direct_dagger --eval-episodes 0             # skip per-iter eval (faster)
+python -m scripts.direct_dagger --help
+# judge / watch the best round:
+python -m scripts.eval_by_scene runs/direct_dagger/policy_best.pt
+python -m scripts.watch_direct_bc runs/direct_dagger/policy_best.pt
+python -m scripts.plot_progress runs/direct_dagger/progress.csv
+```
+> Saves `runs/direct_dagger/policy_iter{N}.pt` every round and **`policy_best.pt`** (highest
+> held-out route). Compare to `runs/direct_bc/policy_boosted.pt` (the plain BC + boost baseline).
+
+## 8f. Progress visualization — the learning curve
 A shareable "is the car learning?" chart: route completion % vs DAgger iteration, with dashed
 Random (floor) and IDM (ceiling) reference lines. Needs matplotlib (`pip install matplotlib`).
 ```bash
-python -m scripts.plot_progress                                   # runs/dagger/progress.csv -> progress.png
-python -m scripts.plot_progress runs/dagger/progress.csv out.png  # explicit paths
+python -m scripts.plot_progress                                          # WM DAgger: runs/dagger/progress.csv -> .png
+python -m scripts.plot_progress runs/direct_dagger/progress.csv out.png  # direct DAgger curve
+python -m scripts.plot_milestones                                         # all approaches: runs/milestones.png
 ```
-> `scripts.dagger` writes `runs/dagger/progress.csv` (one row per round) + `baselines.json` as it
-> trains; this renders them to `runs/dagger/progress.png`. The CSV is dependency-free (open it in
-> Excel too); only the plot needs matplotlib.
+> Both `scripts.dagger` and `scripts.direct_dagger` write `progress.csv` + `baselines.json` to
+> their run dirs as they train. `plot_milestones` reads `runs/milestones.csv` (appended after every
+> `train_direct_policy` run) — the whole project arc in one bar chart. CSVs are dependency-free
+> (open in Excel); only the plot scripts need matplotlib.
 
 ## 8c. Full script reference — every runnable entry point
 All run from the repo root as `python -m <module>`. `[arg]` = optional; `-` = "skip this positional".
@@ -293,7 +313,8 @@ python -m scripts.run_metadrive [--map M] [--num-scenarios N] [--iters I] [--wm-
 python -m scripts.drive_from_pixels                # image-mode: train a pixel WM + actor in imagination -> runs/visual/
 python -m training.train_reference                 # IDM-expert reference (WM+BC actor+critic) -> runs/reference/ckpt.pt
 python -m scripts.train_on_gesture [session.npz | dir | glob ...]   # learn YOUR driving; many drives accumulate (runs/sessions/)
-python -m scripts.dagger [--iters N] [--rollout-steps S] [--num-scenarios N] [--eval-episodes E]   # DAgger: BC + IDM-relabeled recovery data -> runs/dagger/ckpt.pt (see 8d)
+python -m scripts.dagger [--iters N] [--rollout-steps S] [--num-scenarios N] [--eval-episodes E]   # WM DAgger: BC + IDM-relabeled recovery data -> runs/dagger/ckpt.pt (see 8d)
+python -m scripts.direct_dagger [--iters N] [--rollout-steps S] [--boost-scene O] [--eval-episodes E]   # direct-policy DAgger (no WM) -> runs/direct_dagger/policy.pt (see 8e)
 
 # --- direct obs->action policy (the route-39% path; no world model -- see ROADMAP.md A) ---
 python -m scripts.train_direct_policy [--clean N --recovery N --perturb-prob P --gamma G --boost-scene O --aux-weight W]   # PRODUCTION trainer -> runs/direct_bc/policy.pt + full eval
@@ -312,7 +333,7 @@ python -m scripts.ablate_dynamics                  # GRU vs Mamba-style SSM on t
 python -m scripts.watch_metadrive_3d [ckpt|-] [map]   # 3-D window: IDM expert (-) or OUR trained actor
 python -m scripts.record_metadrive [idm|forward] [map]   # top-down GIF of the sim -> runs/metadrive_drive.gif
 python -m scripts.dream_video [ckpt]               # render the world model's DREAM (condition on real frames, roll prior)
-python -m scripts.plot_progress [progress.csv] [out.png]   # DAgger learning curve PNG from runs/dagger/progress.csv (see 8e)
+python -m scripts.plot_progress [progress.csv] [out.png]   # DAgger learning curve PNG from progress.csv (see 8f)
 python -m scripts.plot_milestones [milestones.csv] [out.png]   # accuracy across approaches (route per milestone) -> runs/milestones.png
 
 # --- drive by hand + feedback (see 8 / 8b) ---

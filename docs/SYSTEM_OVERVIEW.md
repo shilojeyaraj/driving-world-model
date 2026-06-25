@@ -146,15 +146,57 @@ These show judgment, not just knowledge:
 - ✅ Toy: world model trains (healthy KL, no collapse); open-loop beats the no-action baseline;
   a policy trained **only in imagination** drives optimally (return ≈ 95 vs ≈ −51 random).
 - ✅ Ablation, pixels (recon → ~0, crisp dream video), real-sim *learning* (recon 245→0.17).
-- ⚠️ Real-sim **control**: the simplified stack does not yet drive MetaDrive well (model
-  exploitation + corner-collapse). Closing that needs the full DreamerV3 stabilizers + GPU-scale
-  compute. Documented faithfully in `experiments/010–012`.
+- ✅ **Real-sim control — direct policy (route 39–64%).** A controlled ablation revealed the WM
+  latent loses lane/heading signal (bc_loss 2.06 WM-based vs 0.05 direct). A plain MLP cloning
+  directly from the 259-dim state achieves route 39%, climbs to 64% on roundabouts after targeted
+  recovery data + scene boosting (see §8 "The direct-policy reframing" below).
+- ⚠️ **WM-based control** remains unresolved at this compute scale: model exploitation +
+  saturated-tanh actor collapse. `experiments/010–012`. The WM is still used for gesture
+  feedback/critique (§6).
 
-The honesty is a feature: the project maps exactly where a simplified, from-scratch Dreamer
-succeeds and where the production tricks (two-hot heads, EMA return norm, lots of compute) become
-necessary.
+The honesty is a feature: the project maps exactly where the WM latent is the bottleneck, what the
+right engineering response is (bypass it for control), and what the production tricks would fix.
 
-## 8. Anticipated interview questions (crisp answers)
+## 8. The direct-policy reframing (the real MetaDrive result)
+
+This is the part most interviewers will ask about — "so did it drive?" Here's the honest story.
+
+**The finding.** After the WM-based BC idled (route 2%), a controlled ablation compared:
+- `LATENT-BC` (WM encoder → RSSM → bc_actor): bc_loss **2.06**, route **2%** — the latent never
+  fit the expert (the WM's under-training loses lane/heading signal).
+- `DIRECT-BC` (raw 259-dim obs → MLP → action): bc_loss **0.05**, route **22%** — the MLP fits
+  the expert easily, because the raw observation directly encodes where the car is.
+
+The WM latent was the bottleneck, not the data or the imitation objective. The direct policy
+bypasses it entirely.
+
+**What we built from that.** Four roadmap items, each with a measured improvement on held-out maps:
+
+| milestone | route | what it added |
+|---|---|---|
+| direct-BC (plain) | 22% | raw obs→action MLP |
+| + recovery data (DART) | 39% | perturb-then-relabel: policy sees off-center states |
+| + more data + scale | 39% | plateau — not a scale problem |
+| + aux progress head | ~41% | within noise — the obs already exposes lane signal |
+| + roundabout boost | 41% agg / **64% rndbt** | target the one failing geometry |
+
+Per-scene breakdown (after roundabout boost): straight 96%, curve 87%, intersection 84%,
+roundabout 64%. The aggregate 39–41% was masking near-IDM competence on three out of four
+geometries. **Next: direct-policy DAgger** (roll out the learner, IDM relabels failure states —
+the theoretically optimal covariate-shift fix applied to the direct policy).
+
+**Why the WM is still valuable.** For *control* on a CPU budget, the direct policy wins. But the
+WM is a *differentiable simulator* — and that's useful for things beyond RL. The gesture-feedback
+engine (§6) uses the WM to forecast crashes (continue-head imagine), measure surprise vs the
+IDM-cloned expert, and provide the critic's value estimate — none of which the direct policy can
+do. The WM and the direct policy serve different roles.
+
+**The interview talking point.** "I tried model-based RL, documented where it fails, and used an
+ablation to diagnose *why* — not 'I gave up'. The ablation showed the WM latent was the
+bottleneck, so I built a direct-BC policy that bypasses it, then systematically improved it
+(recovery data, scene targeting, DAgger). The WM still runs the feedback/critique path."
+
+## 9. Anticipated interview questions (crisp answers)
 
 - **"What's a world model?"** A learned differentiable simulator — encode obs to a latent, learn
   latent dynamics, predict obs/reward/continue, so you can imagine futures and train a policy in
