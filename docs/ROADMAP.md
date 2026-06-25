@@ -56,7 +56,15 @@ but **recovery_rate 40% → 70%** — more data made it *recover* much better, y
 capped at ~39% by the residual off-road. **Takeaway: more demos alone won't break 39%** — the next
 lever is D (explicit off-road/progress signal), not scale.
 
-### D. Auxiliary progress head  ← **built; experiment pending**
+### D. Auxiliary progress head  ← ✅ **DONE — didn't help (as predicted)**
+**Result (aux_weight 0.5, 8k+8k, deterministic eval):** route 39% → 41% (flat, within ±12% noise),
+off-road 30% → **40% (worse)**, recovery_rate 70% → **40% (worse)**. The aux task competed for
+capacity rather than surfacing hidden signal — expected, since our 259-dim state already exposes the
+lane cue (the trick matters for pixels). **Keep the no-aux `policy.pt`.** Confirms the cheap CPU
+levers are exhausted; the remaining gap to IDM needs a differentiable off-road penalty, more compute,
+or online RL (all beyond the laptop envelope).
+
+(original plan below)
 ChauffeurNet's "more than cloning" idea, adapted to our constraints. We have **no differentiable sim**
 (direct policy bypasses the WM), and off-road *classification* labels are too sparse (~99% on-road),
 and reward-weighted BC would downweight our recovery examples — so the implementable form is
