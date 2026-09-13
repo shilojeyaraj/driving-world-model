@@ -1,0 +1,24 @@
+{
+  "idm": {
+    "n": 8,
+    "mean_return": 94.52495881709746,
+    "return_std": 45.477786761742074,
+    "route_completion": 0.5971013400175927,
+    "route_completion_std": 0.2639003781561456,
+    "success_rate": 0.25,
+    "crash_rate": 0.375,
+    "off_road_rate": 0.125,
+    "mean_steps": 133.25
+  },
+  "random": {
+    "n": 8,
+    "mean_return": 2.0547953540744057,
+    "return_std": 0.4560214397201134,
+    "route_completion": 0.04261994759906031,
+    "route_completion_std": 0.011256451724122794,
+    "success_rate": 0.0,
+    "crash_rate": 0.0,
+    "off_road_rate": 0.0,
+    "mean_steps": 200.0
+  }
+}

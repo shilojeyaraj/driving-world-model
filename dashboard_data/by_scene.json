@@ -1,0 +1,55 @@
+{
+  "scenes": {
+    "S": {
+      "name": "straight",
+      "n": 10,
+      "mean_return": 112.01527689267698,
+      "return_std": 10.12255968705255,
+      "route_completion": 0.9580602827415523,
+      "route_completion_std": 0.0043285749671343335,
+      "success_rate": 1.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.0,
+      "mean_steps": 130.7
+    },
+    "C": {
+      "name": "curve",
+      "n": 10,
+      "mean_return": 151.06425714573476,
+      "return_std": 16.512511966273898,
+      "route_completion": 0.8733885656937705,
+      "route_completion_std": 0.11012043749679173,
+      "success_rate": 0.5,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.0,
+      "mean_steps": 181.3
+    },
+    "X": {
+      "name": "intersection",
+      "n": 10,
+      "mean_return": 101.4544145007053,
+      "return_std": 27.19720292724851,
+      "route_completion": 0.834779656021299,
+      "route_completion_std": 0.1898147012744399,
+      "success_rate": 0.7,
+      "crash_rate": 0.3,
+      "off_road_rate": 0.0,
+      "mean_steps": 124.5
+    },
+    "O": {
+      "name": "roundabout",
+      "n": 10,
+      "mean_return": 102.3305294656697,
+      "return_std": 46.64449900887863,
+      "route_completion": 0.628823070346304,
+      "route_completion_std": 0.24108146527298735,
+      "success_rate": 0.2,
+      "crash_rate": 0.5,
+      "off_road_rate": 0.3,
+      "mean_steps": 136.4
+    }
+  },
+  "config": {
+    "episodes": 10
+  }
+}

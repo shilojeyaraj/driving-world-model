@@ -1,0 +1,819 @@
+{
+  "name": "idm_O",
+  "frame_count": 90,
+  "fps": 15,
+  "frame_size": 256,
+  "steps": 90,
+  "telemetry": [
+    {
+      "t": 0,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.008730293095111853,
+      "route_completion": 0.022967337063039668,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 1,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.03951430475711844,
+      "route_completion": 0.023135933400026003,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 2,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.07152474319934846,
+      "route_completion": 0.02344503032970105,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 3,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.10353422796726419,
+      "route_completion": 0.023894623477824686,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 4,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.13554466640949303,
+      "route_completion": 0.02448471721863704,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 5,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.16755462801456592,
+      "route_completion": 0.02521530936501804,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 6,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.19956411278247835,
+      "route_completion": 0.026086397729847634,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 7,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.23157455122470913,
+      "route_completion": 0.02709798668736594,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 8,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.26358403599262237,
+      "route_completion": 0.028250071863332837,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 9,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.2955944529771805,
+      "route_completion": 0.029542657631988448,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 10,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.32760339653491977,
+      "route_completion": 0.030975737431972586,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 11,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.35961127912998203,
+      "route_completion": 0.032549306889045136,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 12,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.3916160861253739,
+      "route_completion": 0.03426335288048574,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 13,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.4236137657165528,
+      "route_completion": 0.036117844786613534,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 14,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.4555995349884034,
+      "route_completion": 0.038112732303667136,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 15,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.4875572757720948,
+      "route_completion": 0.04024789514004322,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 16,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5194645910263062,
+      "route_completion": 0.04252311677085578,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 17,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5512842683792114,
+      "route_completion": 0.044938021011454415,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 18,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5829504137039185,
+      "route_completion": 0.04749194735158085,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 19,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6022831736714201,
+      "route_completion": 0.050137102843672274,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 20,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5958290288881058,
+      "route_completion": 0.052751135617302304,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 21,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6098865063211608,
+      "route_completion": 0.055423490134466534,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 22,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6399035089353197,
+      "route_completion": 0.05822756177015637,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 23,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6701119345748273,
+      "route_completion": 0.061164308482958334,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 24,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6996085727574184,
+      "route_completion": 0.06423067705326792,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 25,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.727947182105318,
+      "route_completion": 0.06742168084734708,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 26,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.7545120643443249,
+      "route_completion": 0.0707296037056223,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 27,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.7787859802704676,
+      "route_completion": 0.07414448110909774,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 28,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8002099906798014,
+      "route_completion": 0.07765387271886912,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 29,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8183824741729936,
+      "route_completion": 0.08124354913182256,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 30,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8331155944581361,
+      "route_completion": 0.08489841047106018,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 31,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8445128687525393,
+      "route_completion": 0.08860376803825541,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 32,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8529340424284806,
+      "route_completion": 0.09234648161608455,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 33,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8589174431219697,
+      "route_completion": 0.09611576432840907,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 34,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8630279478987373,
+      "route_completion": 0.09990331386747918,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 35,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.865778705133847,
+      "route_completion": 0.10370309378192778,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 36,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8675862325850765,
+      "route_completion": 0.10751091354971891,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 37,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8687601099131258,
+      "route_completion": 0.1113239561602146,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 38,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8695131126894758,
+      "route_completion": 0.11514034943864303,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 39,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8699966554234105,
+      "route_completion": 0.11895889484321101,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 40,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8703033003584273,
+      "route_completion": 0.12277880501069678,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 41,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8704959715947288,
+      "route_completion": 0.12659957252924628,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 42,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8706216476008248,
+      "route_completion": 0.13042089995053124,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 43,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8707002597235561,
+      "route_completion": 0.13424257731102593,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 44,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8707474954219692,
+      "route_completion": 0.1380644646350464,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 45,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8707789570438961,
+      "route_completion": 0.14188649193475078,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 46,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8707986313074083,
+      "route_completion": 0.14570860671925756,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 47,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708142333761459,
+      "route_completion": 0.14953079149160628,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 48,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708202127566931,
+      "route_completion": 0.1533530025093957,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 49,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708203841091952,
+      "route_completion": 0.15717521352718516,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 50,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708204696361002,
+      "route_completion": 0.16099742454497462,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 51,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708319993271453,
+      "route_completion": 0.1648196880536455,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 52,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396284726633,
+      "route_completion": 0.16864198655623738,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 53,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396282171075,
+      "route_completion": 0.17246428505882924,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 54,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396279816081,
+      "route_completion": 0.1762865835614211,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 55,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396277759849,
+      "route_completion": 0.18010888206401296,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 56,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396275988003,
+      "route_completion": 0.18393118056660485,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 57,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396274551025,
+      "route_completion": 0.1877534790691967,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 58,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396273220588,
+      "route_completion": 0.19157577757178856,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 59,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396271875594,
+      "route_completion": 0.19539807607438042,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 60,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396270907257,
+      "route_completion": 0.1992203745769723,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 61,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396270173785,
+      "route_completion": 0.20304267307956417,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 62,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396269453889,
+      "route_completion": 0.20686497158215603,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 63,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396268778097,
+      "route_completion": 0.21068727008474789,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 64,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396268319969,
+      "route_completion": 0.21450956858733977,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 65,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396267996275,
+      "route_completion": 0.21833186708993163,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 66,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396267664493,
+      "route_completion": 0.2221541655925235,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 67,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8708396267319993,
+      "route_completion": 0.22597646409511538,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 68,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8660455391322499,
+      "route_completion": 0.22979876259770723,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 69,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.8543221294754562,
+      "route_completion": 0.2364796627798324,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 70,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.7818407087463695,
+      "route_completion": 0.2426066863661672,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 71,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6676814950106742,
+      "route_completion": 0.24783879587456098,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 72,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5579350643063505,
+      "route_completion": 0.25221435065859993,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 73,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.4566815152597287,
+      "route_completion": 0.2557944306868635,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 74,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.39612229836634466,
+      "route_completion": 0.258881694188149,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 75,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.395445144495766,
+      "route_completion": 0.2619577660091311,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 76,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.4132292761505441,
+      "route_completion": 0.2651696137232986,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 77,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.43975119696623577,
+      "route_completion": 0.26858722047055805,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 78,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.46940975372552446,
+      "route_completion": 0.2722361046437587,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 79,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.499543066963021,
+      "route_completion": 0.27612028046666287,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 80,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5296298912800264,
+      "route_completion": 0.28023966050680577,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 81,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5591425326216374,
+      "route_completion": 0.28459028020340543,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 82,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.5866612325423235,
+      "route_completion": 0.28915744783536956,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 83,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6132786565740542,
+      "route_completion": 0.2939316609984934,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 84,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6439961953218509,
+      "route_completion": 0.29894674879636673,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 85,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.6744197238118148,
+      "route_completion": 0.30420076508122323,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 86,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.7039376151120909,
+      "route_completion": 0.3096869041939192,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 87,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.7320507447677351,
+      "route_completion": 0.3153944499354234,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 88,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": 0.7431053649739466,
+      "route_completion": 0.321307915302068,
+      "out_of_road": false,
+      "crash": false
+    },
+    {
+      "t": 89,
+      "steer": 0.0,
+      "throttle": 0.0,
+      "reward": -5.0,
+      "route_completion": 0.3240104613486216,
+      "out_of_road": true,
+      "crash": true
+    }
+  ]
+}

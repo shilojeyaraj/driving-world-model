@@ -1,0 +1,46 @@
+{
+  "iterations": [
+    {
+      "iter": 0,
+      "route_completion": 0.28171163832593543,
+      "success_rate": 0.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.6,
+      "mean_return": 96.4608906750919
+    },
+    {
+      "iter": 1,
+      "route_completion": 0.4062784339676989,
+      "success_rate": 0.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.2,
+      "mean_return": 142.62097311565495
+    },
+    {
+      "iter": 2,
+      "route_completion": 0.3898476099192457,
+      "success_rate": 0.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.2,
+      "mean_return": 135.6372397795386
+    },
+    {
+      "iter": 3,
+      "route_completion": 0.3986994639934956,
+      "success_rate": 0.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.2,
+      "mean_return": 139.33930857547782
+    }
+  ],
+  "config": {
+    "iters": 3,
+    "clean_steps": 8000,
+    "recovery_steps": 8000,
+    "rollout_steps": 2000,
+    "direct_steps": 8000,
+    "boost_scene": "O",
+    "boost_steps": 4000,
+    "eval_episodes": 5
+  }
+}

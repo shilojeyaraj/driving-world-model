@@ -1,0 +1,756 @@
+<title>Dreamer Driving Console</title>
+<meta name="description" content="A from-scratch Dreamer-style world model for driving in MetaDrive — real rollouts, real numbers, and an honestly documented reinforcement-learning failure.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: light;
+    --page:#f9f9f7; --surface:#fcfcfb; --surface-raised:#ffffff;
+    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --blue:#2a78d6; --violet:#4a3aa7; --critical:#d03b3b; --good:#0ca30c;
+    --neutral-bar:#c7c5ba;
+    --font-display:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --font-mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --page:#0d0d0d; --surface:#1a1a19; --surface-raised:#202020;
+      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#8f8d86;
+      --grid:#2c2c2a; --baseline:#3a3a37; --border:rgba(255,255,255,0.10);
+      --blue:#3987e5; --violet:#9085e9; --critical:#e05b5b; --good:#2ecb2e;
+      --neutral-bar:#54534c;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --surface-raised:#202020;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#8f8d86;
+    --grid:#2c2c2a; --baseline:#3a3a37; --border:rgba(255,255,255,0.10);
+    --blue:#3987e5; --violet:#9085e9; --critical:#e05b5b; --good:#2ecb2e;
+    --neutral-bar:#54534c;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--page); color:var(--ink);
+    font-family:var(--font-display);
+    padding:0 20px; margin:0;
+  }
+  .wrap{max-width:1080px; margin:0 auto;}
+  h1,h2,h3{font-family:var(--font-display); font-weight:700; text-wrap:balance; margin:0;}
+  p{line-height:1.6; color:var(--ink-2); margin:0;}
+  a{color:var(--blue);}
+  .mono{font-family:var(--font-mono);}
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-weight:500;
+  }
+  section{padding-block:56px; border-top:1px solid var(--border);}
+  section:first-of-type{border-top:none;}
+  .section-head{max-width:680px; display:flex; flex-direction:column; gap:10px; margin-bottom:32px;}
+  .section-head h2{font-size:28px;}
+  .section-head p{font-size:16px;}
+
+  /* ---- top nav ---- */
+  .topnav{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding-block:18px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px;}
+  .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--blue); flex:none;}
+  .navlinks{display:flex; gap:20px; font-size:13px; font-family:var(--font-mono);}
+  .navlinks a{color:var(--ink-2); text-decoration:none;}
+  .navlinks a:hover{color:var(--ink);}
+
+  /* ---- hero ---- */
+  .hero{padding-block:28px 56px; display:flex; flex-direction:column; gap:28px;}
+  .hero h1{font-size:clamp(28px,4.4vw,44px); line-height:1.12; max-width:820px;}
+  .hero .lede{font-size:17px; max-width:640px; margin-top:14px;}
+  .hero-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:24px; align-items:stretch;}
+  @media (max-width:760px){ .hero-grid{grid-template-columns:1fr;} }
+  .hero-video-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .hero-video-card video{width:100%; display:block; background:#0a0a0a; aspect-ratio:1/1; object-fit:cover;}
+  .hero-video-label{
+    display:flex; justify-content:space-between; align-items:center; padding:12px 16px;
+    font-family:var(--font-mono); font-size:12px; color:var(--muted);
+  }
+  .hero-video-label b{color:var(--ink); font-weight:600;}
+  .hero-stats{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media (max-width:760px){ .hero-stats{grid-template-columns:1fr 1fr;} }
+  .stat-tile{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px;
+    display:flex; flex-direction:column; gap:6px; justify-content:center;
+  }
+  .stat-tile.wide{grid-column:1/-1; flex-direction:row; align-items:center; gap:14px;}
+  .stat-tile .value{font-family:var(--font-mono); font-size:26px; font-weight:600; letter-spacing:-.01em; white-space:nowrap;}
+  .stat-tile .label{font-size:12.5px; color:var(--muted); line-height:1.35;}
+  .stat-tile.accent .value{color:var(--blue);}
+  .stat-tile.critical .value{color:var(--critical);}
+  .stat-tile.good .value{color:var(--good);}
+
+  .cta-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;}
+  .btn{
+    font-family:var(--font-mono); font-size:13px; font-weight:500; text-decoration:none;
+    padding:10px 16px; border-radius:8px; border:1px solid var(--border); color:var(--ink);
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn.primary{background:var(--blue); color:#fff; border-color:transparent;}
+
+  /* ---- architecture ---- */
+  .arch-flow{display:flex; flex-direction:column; gap:18px; margin-top:8px;}
+  .flow-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .flow-row .flow-label{
+    font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); width:108px; flex:none;
+  }
+  .box{
+    background:var(--surface); border:1px solid var(--border); border-radius:9px;
+    padding:9px 13px; font-family:var(--font-mono); font-size:12.5px; white-space:nowrap;
+  }
+  .box.hi{border-color:var(--blue); color:var(--blue); font-weight:600;}
+  .box.hi2{border-color:var(--violet); color:var(--violet); font-weight:600;}
+  .arrow{color:var(--muted); font-size:14px; flex:none;}
+  .flow-note{font-size:13px; color:var(--muted); width:108px; flex:none;}
+  @media (max-width:700px){
+    .flow-row{gap:6px;} .flow-row .flow-label,.flow-note{width:100%;}
+    .box{font-size:11.5px; padding:7px 10px;}
+  }
+
+  table.slots{width:100%; border-collapse:collapse; margin-top:20px; font-size:13.5px;}
+  table.slots th,table.slots td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--grid);}
+  table.slots th{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:500;}
+  table.slots td.mono{font-family:var(--font-mono); font-size:12.5px;}
+
+  /* ---- ML in depth ---- */
+  .concept-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  @media (max-width:920px){ .concept-grid{grid-template-columns:1fr 1fr;} }
+  @media (max-width:600px){ .concept-grid{grid-template-columns:1fr;} }
+  .concept-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; display:flex; flex-direction:column; gap:10px;
+  }
+  .concept-card h4{font-size:14.5px; font-weight:600; line-height:1.3;}
+  .concept-card .formula{
+    font-family:var(--font-mono); font-size:12px; line-height:1.5;
+    background:color-mix(in srgb, var(--ink) 4%, transparent);
+    border:1px solid var(--grid); border-radius:7px; padding:9px 11px;
+    overflow-x:auto; white-space:pre;
+  }
+  .concept-card p{font-size:13px;}
+  .concept-card .why{
+    font-size:12px; color:var(--muted); border-top:1px solid var(--grid);
+    padding-top:9px; margin-top:1px;
+  }
+  .concept-card .why b{color:var(--ink-2); font-weight:600;}
+
+  /* ---- charts ---- */
+  .chart-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:22px 22px 16px; margin-bottom:20px;
+  }
+  .chart-card h3{font-size:15px; margin-bottom:2px;}
+  .chart-card .chart-sub{font-size:13px; color:var(--muted); margin-bottom:14px; display:block;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--ink-2); margin-top:10px; font-family:var(--font-mono);}
+  .legend .sw{display:inline-flex; align-items:center; gap:6px;}
+  .legend .sw i{width:10px; height:10px; border-radius:2px; display:inline-block;}
+  .chart-callout{
+    font-size:13.5px; color:var(--ink-2); border-top:1px solid var(--grid); margin-top:12px; padding-top:12px;
+  }
+  .results-grid{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  @media (max-width:820px){ .results-grid{grid-template-columns:1fr;} }
+  .results-grid .chart-card.wide{grid-column:1/-1;}
+  svg.chart text{font-family:var(--font-mono); fill:var(--muted);}
+  svg.chart .val-label{fill:var(--ink); font-weight:600;}
+
+  /* ---- rollout gallery ---- */
+  .scene-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;}
+  .scene-tab{
+    font-family:var(--font-mono); font-size:13px; padding:9px 15px; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface); color:var(--ink-2); cursor:pointer;
+  }
+  .scene-tab[aria-selected="true"]{background:var(--blue); color:#fff; border-color:transparent;}
+  .rollout-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media (max-width:700px){ .rollout-grid{grid-template-columns:1fr;} }
+  .rollout-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;
+  }
+  .rollout-card video{width:100%; display:block; background:#0a0a0a; aspect-ratio:1/1; object-fit:cover;}
+  .rollout-card .rc-head{
+    display:flex; justify-content:space-between; align-items:center; padding:12px 16px 0;
+    font-family:var(--font-mono); font-size:12px;
+  }
+  .rc-tag{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; padding:3px 8px; border-radius:5px;
+    font-weight:600;
+  }
+  .rc-tag.expert{background:color-mix(in srgb, var(--violet) 16%, transparent); color:var(--violet);}
+  .rc-tag.ours{background:color-mix(in srgb, var(--blue) 16%, transparent); color:var(--blue);}
+  .rc-stats{
+    display:flex; gap:14px; padding:12px 16px 16px; font-family:var(--font-mono); font-size:12px;
+    color:var(--ink-2); flex-wrap:wrap;
+  }
+  .rc-stats b{color:var(--ink); font-weight:600;}
+  .rc-status{font-weight:600;}
+  .rc-status.ok{color:var(--good);}
+  .rc-status.bad{color:var(--critical);}
+
+  /* ---- case study ---- */
+  .case-wrap{display:grid; grid-template-columns:1fr 1fr; gap:28px; align-items:start;}
+  @media (max-width:820px){ .case-wrap{grid-template-columns:1fr;} }
+  .case-text{display:flex; flex-direction:column; gap:14px;}
+  .case-text p{font-size:14.5px;}
+  .flag-tile{
+    background:color-mix(in srgb, var(--critical) 8%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--critical) 35%, var(--border));
+    border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:4px;
+  }
+  .flag-tile .flag-label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--critical); font-weight:700;}
+  .flag-tile .flag-value{font-family:var(--font-mono); font-size:22px; font-weight:700;}
+  .fix-note{
+    font-size:13px; color:var(--muted); border-left:2px solid var(--baseline); padding-left:14px;
+  }
+
+  footer{padding-block:40px 60px; display:flex; flex-direction:column; gap:14px;}
+  footer .foot-links{display:flex; gap:20px; flex-wrap:wrap; font-family:var(--font-mono); font-size:13px;}
+  footer p{font-size:13px;}
+
+  ::selection{background:color-mix(in srgb, var(--blue) 30%, transparent);}
+</style>
+
+<div class="wrap">
+
+  <nav class="topnav">
+    <div class="brand"><span class="dot"></span> Dreamer Driving Console</div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#ml-depth">ML in depth</a>
+      <a href="#results">Results</a>
+      <a href="#rollouts">Rollouts</a>
+      <a href="#case-study">Failure case study</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <div class="cta-row">
+        <a class="btn primary" href="#rollouts">Watch it drive ↓</a>
+        <a class="btn" href="#case-study">See the failure ↓</a>
+        <a class="btn" href="https://shilojeyaraj.com/research/driving" target="_blank" rel="noopener">Full writeup ↗</a>
+      </div>
+    </div>
+
+    <div class="hero-grid">
+      <div class="hero-video-card">
+        <video src="dashboard_data/rollouts/direct_O/clip.mp4" autoplay muted loop playsinline></video>
+        <div class="hero-video-label">
+          <span>Our policy · roundabout (hardest geometry)</span>
+          <b>84% route this run</b>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-tile accent">
+          <div class="value">96&thinsp;→&thinsp;63%</div>
+          <div class="label">Route completion, straight → roundabout. Recovery-data + DAgger policy, held-out maps.</div>
+        </div>
+        <div class="stat-tile critical">
+          <div class="value">4.19 → −3.12</div>
+          <div class="label">Imagined vs. real return for the single-shot RL actor — confident in imagination, worse than random for real.</div>
+        </div>
+        <div class="stat-tile">
+          <div class="value">259‑dim</div>
+          <div class="label">Real MetaDrive lidar + ego state, live-verified — not a toy observation.</div>
+        </div>
+        <div class="stat-tile">
+          <div class="value">5,255 / 142</div>
+          <div class="label">Lines of from-scratch PyTorch / tests. Every number on this page comes from a real run, not a table.</div>
+        </div>
+        <div class="stat-tile wide good">
+          <div class="value">$0 · no API keys</div>
+          <div class="label">Everything here — the RSSM, the actor-critic, the BC/DAgger policies — is plain PyTorch running locally on a laptop CPU. No OpenAI/Anthropic calls, no cloud GPU, no inference bill, nothing to configure to reproduce it.</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="how">
+    <div class="section-head">
+      <div class="eyebrow">How it works</div>
+      <h2>A world model is a differentiable simulator</h2>
+      <p>Every step compresses an observation into a latent state, learns the <em>dynamics</em> of that
+        state, and predicts reward + continuation — so a policy can be trained by dreaming forward
+        inside it, with no real environment steps.</p>
+    </div>
+
+    <div class="arch-flow">
+      <div class="flow-row">
+        <span class="flow-label">Real data</span>
+        <div class="box">obs (259‑d)</div><span class="arrow">→</span>
+        <div class="box">Encoder (MLP)</div><span class="arrow">→</span>
+        <div class="box hi">RSSM h,z</div><span class="arrow">→</span>
+        <div class="box">Decoder</div><span class="arrow">→</span>
+        <div class="box">ô, r̂, ĉ</div>
+      </div>
+      <div class="flow-row">
+        <span class="flow-note">ELBO loss</span>
+        <div class="box">recon + reward + cont + β·KL(post‖prior)</div>
+      </div>
+      <div class="flow-row">
+        <span class="flow-label">Imagination</span>
+        <div class="box hi2">h,z (prior only)</div><span class="arrow">→</span>
+        <div class="box">Actor</div><span class="arrow">→</span>
+        <div class="box">action</div><span class="arrow">→</span>
+        <div class="box hi2">RSSM img_step</div><span class="arrow">→</span>
+        <div class="box">Critic</div><span class="arrow">→</span>
+        <div class="box">λ‑return</div>
+      </div>
+    </div>
+
+    <table class="slots">
+      <thead><tr><th>Slot</th><th>Shape / role</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Deterministic state <span class="mono">h</span></td><td class="mono">256‑d GRU memory</td><td>Sample-free channel for long-range info; carries the previous action.</td></tr>
+        <tr><td>Stochastic latent <span class="mono">z</span></td><td class="mono">32‑d Gaussian</td><td>Reparameterized; <span class="mono">prior p(z|h)</span> for imagination, <span class="mono">posterior q(z|h,e)</span> when an observation is available.</td></tr>
+        <tr><td>Feature <span class="mono">feat=[h;z]</span></td><td class="mono">288‑d</td><td>What every decoder head and the actor/critic read.</td></tr>
+        <tr><td>Dynamics</td><td class="mono">cfg.dynamics</td><td>GRU (default) vs. a Mamba-style selective SSM — swappable behind one interface, re-scored on the same eval harness.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="ml-depth">
+    <div class="section-head">
+      <div class="eyebrow">ML in depth</div>
+      <h2>The concepts actually doing the work</h2>
+      <p>Every ML core here — the RSSM, the ELBO, the imagination rollout, the DAgger loop — was
+        implemented from scratch, not imported. This is the reference sheet: the concept, the exact
+        formula used in this codebase, and why it's load-bearing rather than decorative.</p>
+    </div>
+
+    <div class="concept-grid">
+      <div class="concept-card">
+        <h4>Variational inference — the ELBO</h4>
+        <div class="formula">log p(x|a) ≥ E_q[log p(x|z,a)]
+            − KL(q(z|·) ‖ p(z|a))
+
+loss = MSE(ô,o) + MSE(r̂,r)
+     + BCE(ĉ, 1−done) + β·KL(q‖p)</div>
+        <p>The world model's training objective. Marginalizing over the latent is intractable, so a
+          posterior <span class="mono">q(z|h,e)</span> gives a tractable lower bound instead of the true
+          likelihood.</p>
+        <div class="why"><b>Why it matters:</b> the KL term is the price of using an obs-informed
+          posterior instead of the blind prior — minimizing it is literally what teaches the prior to
+          predict the latent without seeing the observation. Delete it and imagination has nothing to run on.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>Reparameterization trick</h4>
+        <div class="formula">z = μ + σ ⊙ ε,   ε ~ N(0, 1)</div>
+        <p>Rewrites a stochastic sample as a deterministic function of the network's outputs plus
+          external noise.</p>
+        <div class="why"><b>Why it matters:</b> a raw sample from <span class="mono">N(μ,σ)</span> has no
+          gradient. This is what lets an imagined λ-return backprop <em>through</em> the sampled latent,
+          through the dynamics, and into the actor's weights.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>RSSM: split deterministic + stochastic state</h4>
+        <div class="formula">h_t = GRU(h_{t−1}, z_{t−1}, a_{t−1})
+prior:      p(z_t | h_t)
+posterior:  q(z_t | h_t, e_t)</div>
+        <p>State is a pair <span class="mono">(h, z)</span>, not one vector. <span class="mono">h</span>
+          is a sample-free GRU memory; <span class="mono">z</span> is a small latent for what's
+          uncertain this step.</p>
+        <div class="why"><b>Why it matters:</b> the prior is what runs at imagination time, when there's
+          no observation to condition on — the posterior only exists to train it. Collapsing this into a
+          plain RNN removes the calibrated-uncertainty channel the policy needs.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>Free bits — the anti-collapse guard</h4>
+        <div class="formula">KL_term = max( KL(q‖p), free_bits )
+                (per latent dim)</div>
+        <p>Floors the KL penalty instead of letting it shrink all the way to zero.</p>
+        <div class="why"><b>Why it matters:</b> with no floor, gradient pressure pushes the posterior to
+          just copy the prior and ignore the observation entirely — <em>posterior collapse</em>. Watch
+          KL and reconstruction together: healthy training keeps KL meaningfully above zero while recon improves.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>Model-based RL via imagination</h4>
+        <div class="formula">actor_loss = −mean(V^λ)
+           − entropy_coef · mean(entropy)</div>
+        <p>The actor and critic never touch the real environment — they train entirely on rollouts
+          dreamed by rolling the RSSM's prior forward.</p>
+        <div class="why"><b>Why it matters:</b> because the world model is differentiable, maximizing
+          the return backprops straight through the reward head and dynamics into the actor — a
+          <em>value gradient</em>, not a REINFORCE-style policy gradient. It's also exactly why a wrong
+          model gets <em>exploited</em> instead of just under-performing (see the case study below).</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>λ-returns — the bias/variance dial</h4>
+        <div class="formula">V^λ_t = r_t + γc_t·[(1−λ)v_{t+1}
+                    + λ·V^λ_{t+1}]</div>
+        <p>Bootstraps imagined rollouts (short, horizon-limited) with the critic's own value estimate
+          beyond the horizon.</p>
+        <div class="why"><b>Why it matters:</b> λ=0 is one-step TD — low variance, biased by the critic.
+          λ=1 is Monte Carlo — unbiased, high variance. λ=0.95 (used here) interpolates between them.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>DAgger — dataset aggregation</h4>
+        <div class="formula">roll out π_current  →  expert
+relabels every visited state  →
+aggregate  →  retrain  (repeat)</div>
+        <p>Fixes plain behavior cloning's core flaw: a policy trained only on the expert's states has
+          never seen its own mistakes.</p>
+        <div class="why"><b>Why it matters:</b> DAgger's no-regret guarantee comes from training on the
+          <em>learner's own</em> visited distribution, not the expert's — closing exactly the
+          distribution-shift gap that took plain BC's route completion from ~3% to ~23% on the first round alone.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>DART-style recovery data</h4>
+        <div class="formula">executed = expert_action
+    + triangular_impulse(t; t0, τ, σ)
+label   = expert's CLEAN action</div>
+        <p>Drives with the expert but injects a triangular steering perturbation so the car drifts
+          off-center, then records the expert's <em>correcting</em> action as the label.</p>
+        <div class="why"><b>Why it matters:</b> generates the "when off-center, steer back" signal
+          <em>off-policy</em>, with no live expert needed to intervene — the covariate-shift fix DAgger
+          formalizes, applied without an interactive expert.</div>
+      </div>
+
+      <div class="concept-card">
+        <h4>Controlled dynamics ablation</h4>
+        <div class="formula">cfg.dynamics ∈ {"rssm", "mamba"}
+  — one interface, swap only the
+    recurrence, re-score identically</div>
+        <p>GRU-based RSSM vs. a minimal Mamba-style selective state-space model, behind the exact same
+          prior/posterior interface.</p>
+        <div class="why"><b>Why it matters:</b> isolates whether the <em>recurrence</em> choice — not the
+          heads, not the training loop — is what limits dynamics modeling, instead of confounding it with
+          a full architecture rewrite.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="section-head">
+      <div class="eyebrow">Results — real numbers from this run</div>
+      <h2>Where the world-model latent helps, and where it's a bottleneck</h2>
+      <p>A controlled ablation found that behavior-cloning the expert <em>inside the RSSM latent</em>
+        loses lane/heading signal; cloning directly from the raw 259‑dim state does not. That single
+        finding is why the driving policy below bypasses the world model entirely — the world model is
+        still used for prediction and the failure case study on this page.</p>
+    </div>
+
+    <div class="results-grid">
+      <div class="chart-card">
+        <h3>The representation ablation</h3>
+        <span class="chart-sub">Route completion, same IDM data, same held-out maps, one MLP layer swapped for an RSSM.</span>
+        <svg class="chart" id="chart-ablation" viewBox="0 0 380 220"></svg>
+        <div class="chart-callout">Latent-BC (2%) barely beats random (2%) — the under-trained RSSM latent loses lane/heading. Direct-BC (18%) fits the same data easily, but still leaves the road 90% of the time with no recovery coverage — that's what the next two charts fix.</div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Per-geometry breakdown, final policy</h3>
+        <span class="chart-sub">Direct policy + recovery data + DAgger + roundabout boost, held-out maps, one geometry at a time.</span>
+        <svg class="chart" id="chart-scene" viewBox="0 0 380 220"></svg>
+        <div class="chart-callout">Roundabouts are the hard case everywhere in this project — the same 63% shows up in the DAgger chart's aggregate score. For reference: MetaDrive's own IDM autopilot completes 60% of roundabout routes in the same eval window (n=8) — ours lands within noise of the built-in expert on the geometry that beat every earlier approach.</div>
+      </div>
+
+      <div class="chart-card wide">
+        <h3>Direct-policy DAgger, roundabout-boosted</h3>
+        <span class="chart-sub">Held-out route completion per DAgger round — mixed 3-block maps, not a single geometry (hence lower than the per-scene chart above).</span>
+        <svg class="chart" id="chart-dagger" viewBox="0 0 760 220"></svg>
+        <div class="chart-callout">Plain behavior cloning starts at 28% and does <em>not</em> monotonically improve — iteration 2 dips before iteration 3 recovers, which is DAgger's known regression risk, not a bug; the pipeline always keeps the best-scoring checkpoint, not just the last one.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="rollouts">
+    <div class="section-head">
+      <div class="eyebrow">Rollouts — one representative episode each</div>
+      <h2>Watch the expert and our policy drive the same road</h2>
+      <p>Top-down renders from MetaDrive, recorded headless. Left is MetaDrive's built-in IDM autopilot;
+        right is our direct policy (recovery data + DAgger). Single episodes, not averages — the charts
+        above are the aggregate.</p>
+    </div>
+
+    <div class="scene-tabs" role="tablist" id="scene-tabs"></div>
+    <div class="rollout-grid" id="rollout-grid"></div>
+  </section>
+
+  <section id="case-study">
+    <div class="section-head">
+      <div class="eyebrow">Honest case study — not hidden, not fixed</div>
+      <h2>When imagination lies: the model-exploitation failure</h2>
+    </div>
+
+    <div class="case-wrap">
+      <div class="case-text">
+        <p>Dreamer's whole trick is training a policy by imagining rollouts inside a learned world
+          model, with zero real environment steps — the return backpropagates straight through the
+          dynamics into the actor. The catch: if the world model is wrong anywhere, the actor learns to
+          <strong>exploit that error</strong> instead of learning to drive.</p>
+        <p>Here, a policy trained inside a world model built from random, crash-prone MetaDrive data
+          converges to a degenerate action — full steering lock, full throttle — that the model rates
+          as a <em>great</em> plan and reality rates as catastrophic:</p>
+
+        <div class="flag-tile">
+          <span class="flag-label">Degenerate policy this run</span>
+          <span class="flag-value">steer = 1.00 · throttle = 1.00</span>
+        </div>
+
+        <p>The world model itself learned the observation fine in this same run (reconstruction loss
+          245&nbsp;→&nbsp;0.20) — this is not an undertrained encoder. It's the actor finding a corner of
+          latent space the model never saw real consequences for, and optimizing straight into it.</p>
+        <p class="fix-note">The documented fix is Dreamer's <em>iterated</em> loop — collect with the current
+          policy, retrain the world model on policy-visited states, repeat — which grounds the model where
+          it actually drives. A follow-up attempt at full DreamerV3-style stabilizers (return normalization +
+          symlog value heads) hit real NaNs from an unbounded scalar head and was reverted rather than
+          shipped as a fragile stand-in — logged honestly as an open problem, not smoothed over.</p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="chart-card">
+          <h3>Imagined vs. real return</h3>
+          <span class="chart-sub">Same actor, same episode length — imagined return is what the world model believed.</span>
+          <svg class="chart" id="chart-exploit" viewBox="0 0 380 220"></svg>
+        </div>
+        <div class="rollout-card">
+          <video src="dashboard_data/rollouts/exploit_wm/clip.mp4" controls muted loop playsinline></video>
+          <div class="rc-head"><span>The degenerate policy, actually driving</span><span class="rc-tag expert" style="background:color-mix(in srgb, var(--critical) 16%, transparent); color:var(--critical);">real sim</span></div>
+          <div class="rc-stats">Off-road at <b>t=8</b> · route <b>1.4%</b> · <span class="rc-status bad">drove itself off the map within a second</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="foot-links">
+      <a href="https://shilojeyaraj.com/research/driving" target="_blank" rel="noopener">Full writeup ↗</a>
+      <a href="#how">Architecture</a>
+      <a href="#case-study">Failure case study</a>
+    </div>
+    <p>Every number and clip on this page was produced by an offline export script that loads the real
+      checkpoints, runs real MetaDrive episodes, and dumps the results as static data — this page just
+      renders them. No numbers were hand-typed.</p>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const css = getComputedStyle(document.documentElement);
+  const C = (name) => css.getPropertyValue(name).trim();
+  // Resolve tokens against the ELEMENT so light/dark media/data-theme values are picked up correctly.
+  function token(name){
+    return getComputedStyle(document.body).getPropertyValue(name).trim();
+  }
+
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    const e = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // ---------- Chart 1: ablation bar chart ----------
+  function drawAblation(){
+    const svg = document.getElementById("chart-ablation");
+    svg.innerHTML = "";
+    const data = [
+      {label:"Random", value:2.0, color:token("--neutral-bar")},
+      {label:"Latent-BC\n(via RSSM)", value:1.5, color:token("--neutral-bar")},
+      {label:"Direct-BC\n(raw state)", value:18.3, color:token("--blue")},
+    ];
+    const W=380,H=220, padL=34, padB=40, padT=14, padR=14;
+    const plotW = W-padL-padR, plotH = H-padT-padB;
+    const maxV = 22;
+    const bw = plotW / data.length * 0.5;
+    // gridlines
+    [0,5,10,15,20].forEach(gv=>{
+      const y = padT + plotH - (gv/maxV)*plotH;
+      svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:y,y2:y,stroke:token("--grid"),"stroke-width":1}));
+      const t = el("text",{x:padL-8,y:y+3,"font-size":10,"text-anchor":"end"}); t.textContent=gv+"%"; svg.appendChild(t);
+    });
+    data.forEach((d,i)=>{
+      const cx = padL + plotW*( (i+0.5)/data.length );
+      const h = (d.value/maxV)*plotH;
+      const y = padT+plotH-h;
+      svg.appendChild(el("rect",{x:cx-bw/2,y:y,width:bw,height:h,rx:4,fill:d.color}));
+      const vt = el("text",{x:cx,y:y-6,"font-size":12,"text-anchor":"middle",class:"val-label"});
+      vt.textContent = d.value+"%"; svg.appendChild(vt);
+      d.label.split("\n").forEach((line,li)=>{
+        const lt = el("text",{x:cx,y:padT+plotH+16+li*12,"font-size":10.5,"text-anchor":"middle"});
+        lt.textContent = line; svg.appendChild(lt);
+      });
+    });
+    svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:padT+plotH,y2:padT+plotH,stroke:token("--baseline"),"stroke-width":1}));
+  }
+
+  // ---------- Chart 2: by-scene grouped bar ----------
+  function drawByScene(){
+    const svg = document.getElementById("chart-scene");
+    svg.innerHTML = "";
+    const scenes = [
+      {label:"Straight", route:95.8, incident:0.0},
+      {label:"Curve", route:87.3, incident:0.0},
+      {label:"Intersection", route:83.5, incident:30.0},
+      {label:"Roundabout", route:62.9, incident:80.0},
+    ];
+    const W=380,H=220, padL=32, padB=38, padT=14, padR=10;
+    const plotW=W-padL-padR, plotH=H-padT-padB, maxV=100;
+    [0,25,50,75,100].forEach(gv=>{
+      const y = padT+plotH-(gv/maxV)*plotH;
+      svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:y,y2:y,stroke:token("--grid"),"stroke-width":1}));
+      const t = el("text",{x:padL-6,y:y+3,"font-size":9.5,"text-anchor":"end"}); t.textContent=gv; svg.appendChild(t);
+    });
+    const groupW = plotW/scenes.length;
+    scenes.forEach((s,i)=>{
+      const gx = padL + groupW*i;
+      const bw = groupW*0.28;
+      const gap = groupW*0.06;
+      [["route",s.route,token("--blue")],["incident",s.incident,token("--critical")]].forEach(([k,v,color],j)=>{
+        const x = gx + groupW*0.5 - bw - gap/2 + j*(bw+gap);
+        const h = (v/maxV)*plotH;
+        const y = padT+plotH-h;
+        svg.appendChild(el("rect",{x,y,width:bw,height:h,rx:3,fill:color}));
+        if (v>0){
+          const vt = el("text",{x:x+bw/2,y:y-5,"font-size":10,"text-anchor":"middle",class:"val-label"});
+          vt.textContent = Math.round(v)+"%"; svg.appendChild(vt);
+        }
+      });
+      const lt = el("text",{x:gx+groupW/2,y:padT+plotH+16,"font-size":10.5,"text-anchor":"middle"});
+      lt.textContent = s.label; svg.appendChild(lt);
+    });
+    svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:padT+plotH,y2:padT+plotH,stroke:token("--baseline"),"stroke-width":1}));
+  }
+
+  // ---------- Chart 3: DAgger progress line ----------
+  function drawDagger(){
+    const svg = document.getElementById("chart-dagger");
+    svg.innerHTML = "";
+    const iters = [
+      {iter:0, route:28.2},{iter:1, route:40.6},{iter:2, route:39.0},{iter:3, route:39.9},
+    ];
+    const randomFloor = 2.0;
+    const W=760,H=220, padL=40, padB=34, padT=16, padR=24;
+    const plotW=W-padL-padR, plotH=H-padT-padB, maxV=50;
+    [0,10,20,30,40,50].forEach(gv=>{
+      const y = padT+plotH-(gv/maxV)*plotH;
+      svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:y,y2:y,stroke:token("--grid"),"stroke-width":1}));
+      const t = el("text",{x:padL-8,y:y+3,"font-size":10,"text-anchor":"end"}); t.textContent=gv+"%"; svg.appendChild(t);
+    });
+    // random floor dashed
+    const fy = padT+plotH-(randomFloor/maxV)*plotH;
+    svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:fy,y2:fy,stroke:token("--muted"),"stroke-width":1.5,"stroke-dasharray":"4,4"}));
+    const ft = el("text",{x:W-padR,y:fy-6,"font-size":10.5,"text-anchor":"end"}); ft.textContent="random baseline (2%)"; svg.appendChild(ft);
+
+    const stepX = plotW/(iters.length-1);
+    let pathD = "";
+    iters.forEach((p,i)=>{
+      const x = padL+stepX*i;
+      const y = padT+plotH-(p.route/maxV)*plotH;
+      pathD += (i===0?"M":"L")+x+","+y+" ";
+    });
+    svg.appendChild(el("path",{d:pathD.trim(),fill:"none",stroke:token("--blue"),"stroke-width":2.5}));
+    iters.forEach((p,i)=>{
+      const x = padL+stepX*i;
+      const y = padT+plotH-(p.route/maxV)*plotH;
+      svg.appendChild(el("circle",{cx:x,cy:y,r:5,fill:token("--surface"),stroke:token("--blue"),"stroke-width":2.5}));
+      const vt = el("text",{x,y:y-12,"font-size":11.5,"text-anchor":"middle",class:"val-label"});
+      vt.textContent = p.route+"%"; svg.appendChild(vt);
+      const lt = el("text",{x,y:padT+plotH+18,"font-size":10.5,"text-anchor":"middle"});
+      lt.textContent = "iter "+p.iter; svg.appendChild(lt);
+    });
+    svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:padT+plotH,y2:padT+plotH,stroke:token("--baseline"),"stroke-width":1}));
+  }
+
+  // ---------- Chart 4: exploitation imagined vs real ----------
+  function drawExploit(){
+    const svg = document.getElementById("chart-exploit");
+    svg.innerHTML = "";
+    const data = [
+      {label:"Imagined\n(world model)", value:4.19, color:token("--violet")},
+      {label:"Real — actor\n(degenerate)", value:-3.12, color:token("--critical")},
+      {label:"Real — random\nbaseline", value:2.35, color:token("--neutral-bar")},
+    ];
+    const W=380,H=220, padL=28, padB=42, padT=18, padR=14;
+    const plotW=W-padL-padR, plotH=H-padT-padB;
+    const minV=-5, maxV=5;
+    const zeroY = padT + plotH*(maxV/(maxV-minV));
+    svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:zeroY,y2:zeroY,stroke:token("--baseline"),"stroke-width":1}));
+    const bw = plotW/data.length*0.45;
+    data.forEach((d,i)=>{
+      const cx = padL + plotW*((i+0.5)/data.length);
+      const h = Math.abs(d.value)/(maxV-minV)*plotH;
+      const y = d.value>=0 ? zeroY-h : zeroY;
+      svg.appendChild(el("rect",{x:cx-bw/2,y,width:bw,height:h,rx:4,fill:d.color}));
+      const vt = el("text",{x:cx,y: d.value>=0 ? y-6 : y+h+14,"font-size":12,"text-anchor":"middle",class:"val-label"});
+      vt.textContent = (d.value>0?"+":"")+d.value.toFixed(2); svg.appendChild(vt);
+      d.label.split("\n").forEach((line,li)=>{
+        const lt = el("text",{x:cx,y:padT+plotH+16+li*12,"font-size":10,"text-anchor":"middle"});
+        lt.textContent=line; svg.appendChild(lt);
+      });
+    });
+  }
+
+  function drawAllCharts(){ drawAblation(); drawByScene(); drawDagger(); drawExploit(); }
+  drawAllCharts();
+  // redraw on theme change so tokens (colors) re-resolve
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAllCharts);
+  new MutationObserver(drawAllCharts).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+  window.addEventListener("resize", drawAllCharts);
+
+  // ---------- Rollout gallery ----------
+  const ROLLOUTS = {
+    S:{label:"Straight", idm:{route:96.0,status:"no incident",ok:true,steer:null,throttle:null},
+       ours:{route:96.3,status:"no incident",ok:true,steer:-0.002,throttle:0.213}},
+    C:{label:"Curve", idm:{route:96.1,status:"no incident",ok:true,steer:null,throttle:null},
+       ours:{route:67.2,status:"no incident",ok:true,steer:-0.042,throttle:0.151}},
+    X:{label:"Intersection", idm:{route:52.7,status:"crash",ok:false,steer:null,throttle:null},
+       ours:{route:54.7,status:"crash",ok:false,steer:-0.003,throttle:0.325}},
+    O:{label:"Roundabout", idm:{route:32.4,status:"off-road + crash",ok:false,steer:null,throttle:null},
+       ours:{route:83.9,status:"no incident",ok:true,steer:-0.020,throttle:0.198}},
+  };
+  const tabsEl = document.getElementById("scene-tabs");
+  const gridEl = document.getElementById("rollout-grid");
+  const order = ["S","C","X","O"];
+
+  function statCard(kind, sceneKey, d){
+    const isIdm = kind==="idm";
+    const src = `dashboard_data/rollouts/${isIdm?"idm":"direct"}_${sceneKey}/clip.mp4`;
+    const ok = d.ok;
+    const tagClass = isIdm ? "expert" : "ours";
+    const tagText = isIdm ? "IDM expert" : "our policy";
+    const extra = (!isIdm) ? `· mean steer <b>${d.steer.toFixed(3)}</b> · mean throttle <b>${d.throttle.toFixed(3)}</b>` : "";
+    return `<div class="rollout-card">
+      <video src="${src}" autoplay muted loop playsinline></video>
+      <div class="rc-head"><span class="rc-tag ${tagClass}">${tagText}</span><span>route <b>${d.route.toFixed(1)}%</b></span></div>
+      <div class="rc-stats"><span class="rc-status ${ok?'ok':'bad'}">${d.status}</span> ${extra}</div>
+    </div>`;
+  }
+
+  function renderScene(key){
+    const s = ROLLOUTS[key];
+    gridEl.innerHTML = statCard("idm", key, s.idm) + statCard("ours", key, s.ours);
+    [...tabsEl.children].forEach(b=>b.setAttribute("aria-selected", b.dataset.key===key ? "true":"false"));
+  }
+  order.forEach(key=>{
+    const b = document.createElement("button");
+    b.className="scene-tab"; b.type="button"; b.role="tab"; b.dataset.key=key;
+    b.textContent = ROLLOUTS[key].label;
+    b.addEventListener("click", ()=>renderScene(key));
+    tabsEl.appendChild(b);
+  });
+  renderScene("O");
+})();
+</script>

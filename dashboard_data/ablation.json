@@ -1,0 +1,49 @@
+{
+  "bc_loss": {
+    "latent": 0.062287837266922,
+    "direct": 0.0426318496465683
+  },
+  "driving": {
+    "random": {
+      "n": 10,
+      "mean_return": 2.169244333287495,
+      "return_std": 0.47298885385712675,
+      "route_completion": 0.020031687809706707,
+      "route_completion_std": 0.00420133551190092,
+      "success_rate": 0.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.0,
+      "mean_steps": 200.0
+    },
+    "latent_bc": {
+      "n": 10,
+      "mean_return": 0.4366998013868179,
+      "return_std": 0.6437002471826149,
+      "route_completion": 0.015208579819348565,
+      "route_completion_std": 0.003219675393055446,
+      "success_rate": 0.0,
+      "crash_rate": 0.0,
+      "off_road_rate": 0.0,
+      "mean_steps": 200.0
+    },
+    "direct_bc": {
+      "n": 10,
+      "mean_return": 59.40901157634289,
+      "return_std": 38.722274594116854,
+      "route_completion": 0.1825047720841692,
+      "route_completion_std": 0.06747681466336755,
+      "success_rate": 0.0,
+      "crash_rate": 0.1,
+      "off_road_rate": 0.9,
+      "mean_steps": 88.7
+    }
+  },
+  "config": {
+    "collect_steps": 4000,
+    "num_scenarios": 50,
+    "episodes": 10,
+    "wm_steps": 1000,
+    "bc_steps": 1000,
+    "direct_steps": 4000
+  }
+}
